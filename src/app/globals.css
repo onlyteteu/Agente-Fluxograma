@@ -43,6 +43,24 @@ body {
     linear-gradient(180deg, rgba(255, 251, 244, 0.92), rgba(244, 239, 228, 0.96));
 }
 
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__controls-button {
+  background: transparent;
+  border-bottom: 1px solid rgba(28, 27, 25, 0.08);
+  color: #3d352d;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.react-flow__minimap {
+  overflow: hidden;
+}
+
 a {
   color: inherit;
   text-decoration: none;

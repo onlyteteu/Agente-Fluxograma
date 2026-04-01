@@ -16,6 +16,7 @@ import {
   type NodeProps,
   type NodeTypes,
 } from "@xyflow/react";
+import { FLOW_PREVIEW_EXPORT_ID } from "@/lib/export/flow-export";
 import type {
   NormalizedFlowDocument,
   NormalizedFlowNode,
@@ -320,6 +321,7 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
 
   return (
     <div
+      id={FLOW_PREVIEW_EXPORT_ID}
       className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
       style={{ height: metrics.canvasHeight }}
     >

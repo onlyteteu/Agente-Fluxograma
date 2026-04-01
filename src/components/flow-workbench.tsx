@@ -7,6 +7,11 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  buildPdfExportPayload,
+  exportFlowPreviewAsImage,
+  FLOW_PREVIEW_EXPORT_ID,
+} from "@/lib/export/flow-export";
 import { sampleFlowDocumentJson } from "@/lib/flow/example";
 import { normalizeFlowDocument } from "@/lib/flow/normalize";
 import { FlowDocumentParseError, parseFlowDocumentJson } from "@/lib/flow/parser";
@@ -15,6 +20,11 @@ import {
   requestFlowGeneration,
   requestFlowRefinement,
 } from "@/lib/flow/generate-client";
+import {
+  clearPersistedWorkbenchState,
+  loadPersistedWorkbenchState,
+  savePersistedWorkbenchState,
+} from "@/lib/persistence/workbench-storage";
 import type {
   FlowSchemaDocument,
   NormalizedFlowDocument,
@@ -34,6 +44,11 @@ type GenerationState = {
   title: string;
   detail: string;
   source?: "ai" | "simulator";
+};
+
+type ExportState = {
+  status: "idle" | "loading" | "success" | "error";
+  message: string;
 };
 
 const exampleProcessPrompt = `Quando um novo cliente chega, a equipe comercial registra o pedido, o financeiro valida pagamento, e o projeto so segue para onboarding se tudo estiver aprovado. Se faltar algum dado, o cliente recebe uma solicitacao de ajuste antes de continuar.`;
@@ -70,11 +85,16 @@ export function FlowWorkbench() {
     title: "Pronto para gerar",
     detail: "Descreva o processo e envie o texto para montar o fluxograma.",
   });
+  const [exportState, setExportState] = useState<ExportState>({
+    status: "idle",
+    message: "Exporte o preview como imagem quando quiser compartilhar o fluxo.",
+  });
   const [document, setDocument] =
     useState<NormalizedFlowDocument>(initialDocument);
   const [schemaDocument, setSchemaDocument] =
     useState<FlowSchemaDocument>(initialSchemaDocument);
   const [hasGeneratedFlow, setHasGeneratedFlow] = useState(false);
+  const [isPersistenceReady, setIsPersistenceReady] = useState(false);
   const lastValidCountsRef = useRef({
     nodeCount: initialDocument.nodes.length,
     edgeCount: initialDocument.edges.length,
@@ -87,6 +107,70 @@ export function FlowWorkbench() {
     edgeCount: initialDocument.edges.length,
   }));
   const deferredSource = useDeferredValue(source);
+
+  useEffect(() => {
+    const persistedState = loadPersistedWorkbenchState();
+
+    if (!persistedState) {
+      setIsPersistenceReady(true);
+      return;
+    }
+
+    setProcessText(persistedState.processText);
+    setRefinementText(persistedState.refinementText);
+    setSource(persistedState.source);
+    setHasGeneratedFlow(persistedState.hasGeneratedFlow);
+    setGenerationState({
+      status: "idle",
+      title: "Rascunho restaurado",
+      detail: "O ultimo estado local foi restaurado automaticamente.",
+    });
+    setExportState({
+      status: "idle",
+      message: "O preview restaurado ja pode ser exportado como imagem.",
+    });
+
+    try {
+      const restoredSchemaDocument = parseFlowDocumentJson(
+        persistedState.lastValidSource,
+      );
+      const restoredDocument = normalizeFlowDocument(restoredSchemaDocument);
+      const restoredCounts = {
+        nodeCount: restoredDocument.nodes.length,
+        edgeCount: restoredDocument.edges.length,
+      };
+
+      setSchemaDocument(restoredSchemaDocument);
+      setDocument(restoredDocument);
+      lastValidCountsRef.current = restoredCounts;
+      setValidation({
+        status: "valid",
+        message: "JSON valido e pronto para renderizar.",
+        issues: [],
+        ...restoredCounts,
+      });
+    } catch {
+      setSchemaDocument(initialSchemaDocument);
+      setDocument(initialDocument);
+    }
+
+    setIsPersistenceReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isPersistenceReady) {
+      return;
+    }
+
+    savePersistedWorkbenchState({
+      processText,
+      refinementText,
+      source,
+      lastValidSource: stringifyFlowDocument(schemaDocument),
+      hasGeneratedFlow,
+      savedAt: new Date().toISOString(),
+    });
+  }, [hasGeneratedFlow, isPersistenceReady, processText, refinementText, schemaDocument, source]);
 
   useEffect(() => {
     startTransition(() => {
@@ -143,6 +227,7 @@ export function FlowWorkbench() {
   function handleResetWorkbench() {
     startTransition(() => {
       setProcessText("");
+      setRefinementText("");
       setSource(sampleFlowDocumentJson);
       setDocument(initialDocument);
       lastValidCountsRef.current = {
@@ -163,6 +248,11 @@ export function FlowWorkbench() {
         title: "Tela limpa",
         detail: "Escreva um novo processo para comecar outra geracao.",
       });
+      setExportState({
+        status: "idle",
+        message: "A exportacao sera habilitada assim que houver um preview pronto.",
+      });
+      clearPersistedWorkbenchState();
     });
   }
 
@@ -258,12 +348,57 @@ export function FlowWorkbench() {
     }
   }
 
+  async function handleExportImage() {
+    const exportRoot = window.document.getElementById(FLOW_PREVIEW_EXPORT_ID);
+
+    if (!(exportRoot instanceof HTMLElement)) {
+      setExportState({
+        status: "error",
+        message: "Nao encontrei o preview do fluxograma para exportar.",
+      });
+      return;
+    }
+
+    setExportState({
+      status: "loading",
+      message: "Preparando a imagem do fluxograma para download.",
+    });
+
+    try {
+      const pdfPayload = buildPdfExportPayload(processText, schemaDocument);
+      const result = await exportFlowPreviewAsImage(exportRoot, pdfPayload);
+
+      setExportState({
+        status: "success",
+        message: `Imagem exportada como ${result.fileName}. A base para PDF ja ficou preparada nesta mesma camada.`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel exportar a imagem do fluxograma agora.";
+
+      setExportState({
+        status: "error",
+        message,
+      });
+    }
+  }
+
   const generationTone =
     generationState.status === "success"
       ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.9)] text-[#1d5f4f]"
       : generationState.status === "error"
         ? "border-[rgba(201,111,59,0.2)] bg-[#fff6ef] text-[#8f4a22]"
         : generationState.status === "loading"
+          ? "border-[rgba(34,56,84,0.12)] bg-[rgba(244,247,251,0.92)] text-[#31465d]"
+        : "border-line bg-white/60 text-muted";
+  const exportTone =
+    exportState.status === "success"
+      ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.9)] text-[#1d5f4f]"
+      : exportState.status === "error"
+        ? "border-[rgba(201,111,59,0.2)] bg-[#fff6ef] text-[#8f4a22]"
+        : exportState.status === "loading"
           ? "border-[rgba(34,56,84,0.12)] bg-[rgba(244,247,251,0.92)] text-[#31465d]"
           : "border-line bg-white/60 text-muted";
 
@@ -534,6 +669,17 @@ export function FlowWorkbench() {
               logo abaixo como camada tecnica e de depuracao.
             </p>
           </article>
+
+          <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+            <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+              Persistencia local
+            </p>
+            <p className="mt-4 text-sm leading-6 text-muted">
+              O texto principal, a instrucao de refinamento e o ultimo JSON
+              valido agora ficam salvos neste navegador e voltam ao recarregar
+              a pagina.
+            </p>
+          </article>
         </aside>
       </section>
 
@@ -650,6 +796,42 @@ export function FlowWorkbench() {
             <div className="absolute bottom-10 right-12 h-40 w-40 rounded-full bg-accent-strong/15 blur-3xl" />
 
             <div className="relative rounded-[2.25rem] border border-line bg-surface p-4 shadow-[var(--shadow)] sm:p-5">
+              <div className="mb-4 flex flex-col gap-4 border-b border-line/70 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                    Preview do fluxo
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    O diagrama continua validado antes de renderizar e agora ja
+                    pode ser exportado como imagem.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleExportImage}
+                    disabled={isGenerating || exportState.status === "loading"}
+                    className="rounded-full border border-line bg-white/85 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {exportState.status === "loading"
+                      ? "Exportando..."
+                      : "Exportar imagem"}
+                  </button>
+                </div>
+              </div>
+
+              <div
+                className={`mb-4 rounded-[1.25rem] border p-4 transition ${exportTone}`}
+              >
+                <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                  Exportacao
+                </p>
+                <p className="mt-2 text-sm leading-6 opacity-85">
+                  {exportState.message}
+                </p>
+              </div>
+
               {isGenerating ? (
                 <div className="pointer-events-none absolute inset-5 z-10 flex items-start justify-end">
                   <div className="rounded-full border border-[rgba(34,56,84,0.12)] bg-white/88 px-4 py-2 text-sm text-[#31465d] shadow-[0_18px_40px_rgba(38,32,24,0.12)] backdrop-blur">

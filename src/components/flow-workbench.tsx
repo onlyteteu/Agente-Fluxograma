@@ -10,6 +10,10 @@ import {
 import { sampleFlowDocumentJson } from "@/lib/flow/example";
 import { FlowDocumentParseError } from "@/lib/flow/parser";
 import { resolveNormalizedFlowDocumentFromJson } from "@/lib/flow/resolve";
+import {
+  simulateFlowDocumentFromText,
+  stringifyFlowDocument,
+} from "@/lib/flow/simulate";
 import type { NormalizedFlowDocument } from "@/lib/flow/types";
 import { FlowPreview } from "./flow-preview";
 
@@ -39,6 +43,9 @@ const initialDocument = buildInitialDocument();
 export function FlowWorkbench() {
   const [source, setSource] = useState(sampleFlowDocumentJson);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
+  const [generationMessage, setGenerationMessage] = useState(
+    "Pronto para gerar uma estrutura simulada compativel com o schema.",
+  );
   const [document, setDocument] =
     useState<NormalizedFlowDocument>(initialDocument);
   const lastValidCountsRef = useRef({
@@ -95,6 +102,18 @@ export function FlowWorkbench() {
     });
   }, [deferredSource]);
 
+  function handleGenerateFlow() {
+    const simulatedDocument = simulateFlowDocumentFromText(processText);
+    const nextSource = stringifyFlowDocument(simulatedDocument);
+
+    startTransition(() => {
+      setSource(nextSource);
+      setGenerationMessage(
+        "Estrutura simulada gerada a partir do texto e enviada para o canvas.",
+      );
+    });
+  }
+
   return (
     <div className="grid gap-8">
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
@@ -140,6 +159,14 @@ export function FlowWorkbench() {
               />
 
               <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleGenerateFlow}
+                  disabled={processText.trim().length === 0}
+                  className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition hover:bg-[#2f2a24] disabled:cursor-not-allowed disabled:bg-[#7f766c]"
+                >
+                  Gerar estrutura simulada
+                </button>
                 {promptSuggestions.map((suggestion) => (
                   <button
                     key={suggestion}
@@ -157,6 +184,10 @@ export function FlowWorkbench() {
                   </button>
                 ))}
               </div>
+
+              <div className="mt-4 rounded-[1.25rem] border border-dashed border-line bg-white/60 p-4 text-sm leading-6 text-muted">
+                {generationMessage}
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -170,8 +201,8 @@ export function FlowWorkbench() {
                 </p>
                 <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/6 p-4 font-mono text-[12px] leading-6 text-white/82">
                   <div>{`input: "${processText.slice(0, 84)}${processText.length > 84 ? "..." : ""}"`}</div>
-                  <div>output: flow-schema</div>
-                  <div>mode: visual-first</div>
+                  <div>output: flow-schema (simulado)</div>
+                  <div>mode: temporary-local-generator</div>
                 </div>
               </article>
 
@@ -201,9 +232,9 @@ export function FlowWorkbench() {
                 </div>
 
                 <div className="mt-4 rounded-[1.25rem] border border-dashed border-line bg-white/40 p-4 text-sm leading-6 text-muted">
-                  Botao real de &quot;Gerar fluxograma com IA&quot; entra na
-                  proxima fase. Por enquanto, esta interface ja organiza a
-                  entrada do usuario do jeito certo para a integracao.
+                  Este botao agora gera uma estrutura temporaria local. Na
+                  proxima fase, ele pode trocar o simulador por uma chamada real
+                  de IA sem mudar a interface principal.
                 </div>
               </article>
             </div>
@@ -333,7 +364,7 @@ export function FlowWorkbench() {
                 </p>
                 <p className="mt-2 text-sm leading-6 text-muted">
                   Esta camada tecnica continua disponivel para validar schema,
-                  testar exemplos e depurar a futura resposta da IA.
+                  inspecionar o JSON gerado e depurar a futura resposta da IA.
                 </p>
               </div>
             </div>

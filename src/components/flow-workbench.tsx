@@ -403,10 +403,17 @@ export function FlowWorkbench() {
   const technicalToggleLabel = isTechnicalVisible
     ? "Ocultar estrutura tecnica"
     : "Ver estrutura tecnica";
+  const helperPanelClassName = isTechnicalVisible
+    ? "space-y-4"
+    : "rounded-[2rem] border border-line bg-surface/92 p-5 shadow-[var(--shadow)]";
 
   return (
     <div className="grid gap-8">
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_360px]">
+      <section
+        className={`grid gap-6 ${
+          isTechnicalVisible ? "xl:grid-cols-[minmax(0,1.15fr)_360px]" : ""
+        }`}
+      >
         <article className="rounded-[2.5rem] border border-line bg-surface p-5 shadow-[var(--shadow)] sm:p-6">
           <div className="flex flex-col gap-5 border-b border-line/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-2xl">
@@ -423,13 +430,9 @@ export function FlowWorkbench() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleLoadExample}
-              className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
-            >
-              Carregar exemplo guiado
-            </button>
+            <div className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted">
+              Experiencia focada em gerar, refinar e exportar
+            </div>
           </div>
 
           <div
@@ -481,22 +484,6 @@ export function FlowWorkbench() {
                 >
                   Limpar e recomecar
                 </button>
-                {promptSuggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() =>
-                      setProcessText((current) =>
-                        current.trim().length === 0
-                          ? suggestion
-                          : `${current.trim()} ${suggestion}`,
-                      )
-                    }
-                    className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
               </div>
 
               <div
@@ -534,6 +521,37 @@ export function FlowWorkbench() {
                 </div>
               </div>
 
+              <details className="mt-4 rounded-[1.25rem] border border-line/80 bg-white/55 px-4 py-3 text-sm text-muted">
+                <summary className="cursor-pointer list-none font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                  Sugestoes de escrita
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleLoadExample}
+                    className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
+                  >
+                    Carregar exemplo guiado
+                  </button>
+                  {promptSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() =>
+                        setProcessText((current) =>
+                          current.trim().length === 0
+                            ? suggestion
+                            : `${current.trim()} ${suggestion}`,
+                        )
+                      }
+                      className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </details>
+
               <div className="mt-5 rounded-[1.75rem] border border-line bg-white/70 p-4 sm:p-5">
                 <div className="flex flex-col gap-3 border-b border-line/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -549,13 +567,9 @@ export function FlowWorkbench() {
                     </p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setRefinementText(exampleRefinementPrompt)}
-                    className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
-                  >
-                    Carregar instrucao exemplo
-                  </button>
+                  <div className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted">
+                    Refinamento sem sair do fluxo atual
+                  </div>
                 </div>
 
                 <label
@@ -585,17 +599,32 @@ export function FlowWorkbench() {
                   >
                     Refinar fluxo atual
                   </button>
-                  {refinementSuggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => setRefinementText(suggestion)}
-                      className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
                 </div>
+
+                <details className="mt-4 rounded-[1.25rem] border border-line/80 bg-white/55 px-4 py-3 text-sm text-muted">
+                  <summary className="cursor-pointer list-none font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                    Sugestoes de refinamento
+                  </summary>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setRefinementText(exampleRefinementPrompt)}
+                      className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
+                    >
+                      Carregar instrucao exemplo
+                    </button>
+                    {refinementSuggestions.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => setRefinementText(suggestion)}
+                        className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </details>
               </div>
             </div>
 
@@ -652,42 +681,95 @@ export function FlowWorkbench() {
           </div>
         </article>
 
-        <aside className="space-y-4">
-          <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
-            <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
-              Guia rapido
-            </p>
-            <h3 className="mt-4 text-2xl font-semibold tracking-tight">
-              O que escrever aqui
-            </h3>
-            <ul className="mt-4 space-y-3 text-sm leading-6 text-muted">
-              <li>Qual evento inicia o processo.</li>
-              <li>Quais etapas acontecem em sequencia.</li>
-              <li>Quais decisoes abrem caminhos diferentes.</li>
-              <li>Que situacoes fazem o fluxo voltar ou encerrar.</li>
-            </ul>
-          </article>
+        <aside className={helperPanelClassName}>
+          {isTechnicalVisible ? (
+            <>
+              <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+                <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                  Guia rapido
+                </p>
+                <h3 className="mt-4 text-2xl font-semibold tracking-tight">
+                  O que escrever aqui
+                </h3>
+                <ul className="mt-4 space-y-3 text-sm leading-6 text-muted">
+                  <li>Qual evento inicia o processo.</li>
+                  <li>Quais etapas acontecem em sequencia.</li>
+                  <li>Quais decisoes abrem caminhos diferentes.</li>
+                  <li>Que situacoes fazem o fluxo voltar ou encerrar.</li>
+                </ul>
+              </article>
 
-          <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
-            <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
-              Direcao
-            </p>
-            <p className="mt-4 text-sm leading-6 text-muted">
-              A entrada em texto e a camada de produto. O editor JSON continua
-              logo abaixo como camada tecnica e de depuracao.
-            </p>
-          </article>
+              <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+                <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                  Direcao
+                </p>
+                <p className="mt-4 text-sm leading-6 text-muted">
+                  A entrada em texto e a camada de produto. O editor JSON continua
+                  logo abaixo como camada tecnica e de depuracao.
+                </p>
+              </article>
 
-          <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
-            <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
-              Persistencia local
-            </p>
-            <p className="mt-4 text-sm leading-6 text-muted">
-              O texto principal, a instrucao de refinamento e o ultimo JSON
-              valido agora ficam salvos neste navegador e voltam ao recarregar
-              a pagina.
-            </p>
-          </article>
+              <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+                <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                  Persistencia local
+                </p>
+                <p className="mt-4 text-sm leading-6 text-muted">
+                  O texto principal, a instrucao de refinamento e o ultimo JSON
+                  valido agora ficam salvos neste navegador e voltam ao recarregar
+                  a pagina.
+                </p>
+              </article>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                    Apoio discreto
+                  </p>
+                  <h3 className="mt-3 text-xl font-semibold tracking-tight">
+                    Modo produto em primeiro plano
+                  </h3>
+                </div>
+                <span className="rounded-full border border-line bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                  Essencial
+                </span>
+              </div>
+
+              <p className="mt-3 text-sm leading-6 text-muted">
+                A tela principal agora prioriza escrever, refinar, visualizar e
+                exportar. O restante fica recolhido para reduzir ruido.
+              </p>
+
+              <details className="rounded-[1.5rem] border border-line/80 bg-white/55 px-4 py-3 text-sm text-muted">
+                <summary className="cursor-pointer list-none font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                  Guia rapido de escrita
+                </summary>
+                <ul className="mt-3 space-y-2 leading-6">
+                  <li>Qual evento inicia o processo.</li>
+                  <li>Quais etapas acontecem em sequencia.</li>
+                  <li>Quais decisoes abrem caminhos diferentes.</li>
+                  <li>Que situacoes fazem o fluxo voltar ou encerrar.</li>
+                </ul>
+              </details>
+
+              <details className="rounded-[1.5rem] border border-line/80 bg-white/55 px-4 py-3 text-sm text-muted">
+                <summary className="cursor-pointer list-none font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                  Informacoes adicionais
+                </summary>
+                <div className="mt-3 space-y-3 leading-6">
+                  <p>
+                    A entrada em texto e a camada de produto. A estrutura tecnica
+                    continua acessivel sem competir com o fluxo principal.
+                  </p>
+                  <p>
+                    O texto principal, a instrucao de refinamento e o ultimo JSON
+                    valido ficam salvos neste navegador ao recarregar a pagina.
+                  </p>
+                </div>
+              </details>
+            </>
+          )}
         </aside>
       </section>
 

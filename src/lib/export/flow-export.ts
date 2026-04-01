@@ -1,4 +1,7 @@
+import { getNodesBounds, getViewportForBounds } from "@xyflow/react";
 import { toPng } from "html-to-image";
+import { layoutFlowDocument } from "@/lib/flow/layout";
+import { normalizeFlowDocument } from "@/lib/flow/normalize";
 import type { FlowSchemaDocument } from "@/lib/flow/types";
 
 export const FLOW_PREVIEW_EXPORT_ID = "flowtalk-preview-export-root";
@@ -67,6 +70,17 @@ export async function exportFlowPreviewAsImage(
   const bounds = element.getBoundingClientRect();
   const width = Math.max(1, Math.round(bounds.width));
   const height = Math.max(1, Math.round(bounds.height));
+  const normalizedDocument = normalizeFlowDocument(payload.document);
+  const { nodes } = layoutFlowDocument(normalizedDocument);
+  const nodesBounds = getNodesBounds(nodes);
+  const viewport = getViewportForBounds(
+    nodesBounds,
+    width,
+    height,
+    0.5,
+    2,
+    0.08,
+  );
 
   const dataUrl = await toPng(exportTarget, {
     backgroundColor: "#fbf4ea",
@@ -80,6 +94,8 @@ export async function exportFlowPreviewAsImage(
       width: `${width}px`,
       height: `${height}px`,
       background: "#fbf4ea",
+      transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+      transformOrigin: "0 0",
     },
     filter: (node) => {
       if (!(node instanceof HTMLElement)) {

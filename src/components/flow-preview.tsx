@@ -1,6 +1,5 @@
 "use client";
 
-import dagre from "dagre";
 import {
   Background,
   BackgroundVariant,
@@ -17,35 +16,13 @@ import {
   type NodeTypes,
 } from "@xyflow/react";
 import { FLOW_PREVIEW_EXPORT_ID } from "@/lib/export/flow-export";
+import { layoutFlowDocument } from "@/lib/flow/layout";
 import type {
   NormalizedFlowDocument,
   NormalizedFlowNode,
 } from "@/lib/flow/types";
 
 type FlowNodeData = NormalizedFlowNode;
-
-type NodeDimension = {
-  width: number;
-  height: number;
-};
-
-type LayoutMetrics = {
-  ranksep: number;
-  nodesep: number;
-  fitPadding: number;
-  minZoom: number;
-  maxZoom: number;
-  canvasHeight: number;
-};
-
-const nodeDimensions: Record<FlowNodeData["type"], NodeDimension> = {
-  start: { width: 136, height: 136 },
-  task: { width: 312, height: 130 },
-  gateway: { width: 188, height: 188 },
-  end: { width: 142, height: 142 },
-};
-
-const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
 const taskPalette: Record<FlowNodeData["tone"], string> = {
   accent:
@@ -63,93 +40,8 @@ const eventPalette: Record<"start" | "end", string> = {
   end: "border-[rgba(16,14,12,0.16)] bg-[radial-gradient(circle_at_30%_30%,rgba(73,64,54,0.96),rgba(31,28,24,0.98)_58%,rgba(19,17,14,1))] text-[#f8efe1]",
 };
 
-function getNodeDimension(type: FlowNodeData["type"]) {
-  return nodeDimensions[type];
-}
-
-function getLayoutMetrics(document: NormalizedFlowDocument): LayoutMetrics {
-  const nodeCount = document.nodes.length;
-  const compactFlow = nodeCount <= 4;
-  const mediumFlow = nodeCount <= 6;
-
-  return {
-    ranksep: compactFlow ? 68 : mediumFlow ? 76 : 84,
-    nodesep: compactFlow ? 28 : 36,
-    fitPadding: compactFlow ? 0.09 : mediumFlow ? 0.105 : 0.12,
-    minZoom: compactFlow ? 0.86 : 0.8,
-    maxZoom: 1.28,
-    canvasHeight: compactFlow ? 540 : mediumFlow ? 600 : 660,
-  };
-}
-
-function layoutElements(document: NormalizedFlowDocument) {
-  const metrics = getLayoutMetrics(document);
-
-  graph.setGraph({
-    rankdir: "TB",
-    ranksep: metrics.ranksep,
-    nodesep: metrics.nodesep,
-    marginx: 16,
-    marginy: 16,
-    ranker: "network-simplex",
-    acyclicer: "greedy",
-  });
-
-  document.nodes.forEach((node) => {
-    const dimension = getNodeDimension(node.type);
-
-    graph.setNode(node.id, {
-      width: dimension.width,
-      height: dimension.height,
-    });
-  });
-
-  document.edges.forEach((edge) => {
-    graph.setEdge(edge.source, edge.target, {
-      weight: edge.label ? 3 : 6,
-      minlen: edge.label ? 1 : 1,
-    });
-  });
-
-  dagre.layout(graph);
-
-  const rawNodes: Node<FlowNodeData>[] = document.nodes.map((node) => {
-    const position = graph.node(node.id);
-    const dimension = getNodeDimension(node.type);
-
-    return {
-      ...node,
-      sourcePosition: Position.Bottom,
-      targetPosition: Position.Top,
-      type: "flowCard",
-      data: node,
-      position: {
-        x: position.x - dimension.width / 2,
-        y: position.y - dimension.height / 2,
-      },
-    };
-  });
-
-  const minX = Math.min(...rawNodes.map((node) => node.position.x));
-  const maxX = Math.max(
-    ...rawNodes.map((node) => node.position.x + getNodeDimension(node.data.type).width),
-  );
-  const minY = Math.min(...rawNodes.map((node) => node.position.y));
-  const maxY = Math.max(
-    ...rawNodes.map((node) => node.position.y + getNodeDimension(node.data.type).height),
-  );
-  const offsetX = (minX + maxX) / 2;
-  const offsetY = (minY + maxY) / 2;
-
-  const nodes: Node<FlowNodeData>[] = rawNodes.map((node) => ({
-    ...node,
-    position: {
-      x: node.position.x - offsetX,
-      y: node.position.y - offsetY,
-    },
-  }));
-
-  const edges: Edge[] = document.edges.map((edge) => ({
+function buildRenderableEdges(document: NormalizedFlowDocument) {
+  return document.edges.map((edge) => ({
     ...edge,
     animated: !edge.label,
     type: "smoothstep",
@@ -178,8 +70,6 @@ function layoutElements(document: NormalizedFlowDocument) {
       color: edge.label ? "#1f7a63" : "#73685d",
     },
   }));
-
-  return { nodes, edges, metrics };
 }
 
 function BaseHandles({ tone }: { tone: "start" | "task" | "gateway" | "end" }) {
@@ -312,7 +202,8 @@ const nodeTypes: NodeTypes = {
 };
 
 function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
-  const { nodes, edges, metrics } = layoutElements(document);
+  const { nodes, metrics } = layoutFlowDocument(document);
+  const edges: Edge[] = buildRenderableEdges(document);
   const flowKey = `${nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.type}`)
     .join("|")}::${edges

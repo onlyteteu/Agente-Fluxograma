@@ -12,10 +12,12 @@ import {
   exportFlowPreviewAsImage,
   FLOW_PREVIEW_EXPORT_ID,
 } from "@/lib/export/flow-export";
-import { sampleFlowDocumentJson } from "@/lib/flow/example";
-import { normalizeFlowDocument } from "@/lib/flow/normalize";
-import { FlowDocumentParseError, parseFlowDocumentJson } from "@/lib/flow/parser";
+import { FlowDocumentParseError } from "@/lib/flow/parser";
 import { stringifyFlowDocument } from "@/lib/flow/simulate";
+import {
+  createInitialWorkbenchDocument,
+  resolveWorkbenchDocumentFromJson,
+} from "@/lib/flow/workbench-document";
 import {
   requestFlowGeneration,
   requestFlowRefinement,
@@ -68,15 +70,41 @@ const refinementSuggestions = [
   "Inclua uma etapa de validacao antes da confirmacao.",
 ];
 
-function buildInitialSchemaDocument() {
-  return parseFlowDocumentJson(sampleFlowDocumentJson);
+const initialWorkbenchDocument = createInitialWorkbenchDocument();
+const initialSchemaDocument = initialWorkbenchDocument.schemaDocument;
+const initialDocument = initialWorkbenchDocument.document;
+const initialSource = initialWorkbenchDocument.source;
+const initialCounts = initialWorkbenchDocument.counts;
+
+function buildValidationState(
+  counts: { nodeCount: number; edgeCount: number },
+): ValidationState {
+  return {
+    status: "valid",
+    message: "JSON valido e pronto para renderizar.",
+    issues: [],
+    ...counts,
+  };
 }
 
-const initialSchemaDocument = buildInitialSchemaDocument();
-const initialDocument = normalizeFlowDocument(initialSchemaDocument);
+function getToneByStatus(status: GenerationState["status"] | ExportState["status"]) {
+  if (status === "success") {
+    return "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.9)] text-[#1d5f4f]";
+  }
+
+  if (status === "error") {
+    return "border-[rgba(201,111,59,0.2)] bg-[#fff6ef] text-[#8f4a22]";
+  }
+
+  if (status === "loading") {
+    return "border-[rgba(34,56,84,0.12)] bg-[rgba(244,247,251,0.92)] text-[#31465d]";
+  }
+
+  return "border-line bg-white/60 text-muted";
+}
 
 export function FlowWorkbench() {
-  const [source, setSource] = useState(sampleFlowDocumentJson);
+  const [source, setSource] = useState(initialSource);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
   const [refinementText, setRefinementText] = useState(exampleRefinementPrompt);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -96,16 +124,11 @@ export function FlowWorkbench() {
   const [hasGeneratedFlow, setHasGeneratedFlow] = useState(false);
   const [isPersistenceReady, setIsPersistenceReady] = useState(false);
   const lastValidCountsRef = useRef({
-    nodeCount: initialDocument.nodes.length,
-    edgeCount: initialDocument.edges.length,
+    ...initialCounts,
   });
-  const [validation, setValidation] = useState<ValidationState>(() => ({
-    status: "valid",
-    message: "JSON valido e pronto para renderizar.",
-    issues: [],
-    nodeCount: initialDocument.nodes.length,
-    edgeCount: initialDocument.edges.length,
-  }));
+  const [validation, setValidation] = useState<ValidationState>(() =>
+    buildValidationState(initialCounts),
+  );
   const deferredSource = useDeferredValue(source);
 
   useEffect(() => {
@@ -131,24 +154,14 @@ export function FlowWorkbench() {
     });
 
     try {
-      const restoredSchemaDocument = parseFlowDocumentJson(
+      const restoredDocument = resolveWorkbenchDocumentFromJson(
         persistedState.lastValidSource,
       );
-      const restoredDocument = normalizeFlowDocument(restoredSchemaDocument);
-      const restoredCounts = {
-        nodeCount: restoredDocument.nodes.length,
-        edgeCount: restoredDocument.edges.length,
-      };
 
-      setSchemaDocument(restoredSchemaDocument);
-      setDocument(restoredDocument);
-      lastValidCountsRef.current = restoredCounts;
-      setValidation({
-        status: "valid",
-        message: "JSON valido e pronto para renderizar.",
-        issues: [],
-        ...restoredCounts,
-      });
+      setSchemaDocument(restoredDocument.schemaDocument);
+      setDocument(restoredDocument.document);
+      lastValidCountsRef.current = restoredDocument.counts;
+      setValidation(buildValidationState(restoredDocument.counts));
     } catch {
       setSchemaDocument(initialSchemaDocument);
       setDocument(initialDocument);
@@ -175,22 +188,12 @@ export function FlowWorkbench() {
   useEffect(() => {
     startTransition(() => {
       try {
-        const nextSchemaDocument = parseFlowDocumentJson(deferredSource);
-        const nextDocument = normalizeFlowDocument(nextSchemaDocument);
-        const nextCounts = {
-          nodeCount: nextDocument.nodes.length,
-          edgeCount: nextDocument.edges.length,
-        };
+        const nextResolvedDocument = resolveWorkbenchDocumentFromJson(deferredSource);
 
-        setSchemaDocument(nextSchemaDocument);
-        setDocument(nextDocument);
-        lastValidCountsRef.current = nextCounts;
-        setValidation({
-          status: "valid",
-          message: "JSON valido e pronto para renderizar.",
-          issues: [],
-          ...nextCounts,
-        });
+        setSchemaDocument(nextResolvedDocument.schemaDocument);
+        setDocument(nextResolvedDocument.document);
+        lastValidCountsRef.current = nextResolvedDocument.counts;
+        setValidation(buildValidationState(nextResolvedDocument.counts));
       } catch (error) {
         const fallbackMessage =
           "Nao foi possivel transformar este JSON em fluxograma.";
@@ -228,19 +231,12 @@ export function FlowWorkbench() {
     startTransition(() => {
       setProcessText("");
       setRefinementText("");
-      setSource(sampleFlowDocumentJson);
+      setSource(initialSource);
       setDocument(initialDocument);
       lastValidCountsRef.current = {
-        nodeCount: initialDocument.nodes.length,
-        edgeCount: initialDocument.edges.length,
+        ...initialCounts,
       };
-      setValidation({
-        status: "valid",
-        message: "JSON valido e pronto para renderizar.",
-        issues: [],
-        nodeCount: initialDocument.nodes.length,
-        edgeCount: initialDocument.edges.length,
-      });
+      setValidation(buildValidationState(initialCounts));
       setSchemaDocument(initialSchemaDocument);
       setHasGeneratedFlow(false);
       setGenerationState({
@@ -386,21 +382,8 @@ export function FlowWorkbench() {
   }
 
   const generationTone =
-    generationState.status === "success"
-      ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.9)] text-[#1d5f4f]"
-      : generationState.status === "error"
-        ? "border-[rgba(201,111,59,0.2)] bg-[#fff6ef] text-[#8f4a22]"
-        : generationState.status === "loading"
-          ? "border-[rgba(34,56,84,0.12)] bg-[rgba(244,247,251,0.92)] text-[#31465d]"
-        : "border-line bg-white/60 text-muted";
-  const exportTone =
-    exportState.status === "success"
-      ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.9)] text-[#1d5f4f]"
-      : exportState.status === "error"
-        ? "border-[rgba(201,111,59,0.2)] bg-[#fff6ef] text-[#8f4a22]"
-        : exportState.status === "loading"
-          ? "border-[rgba(34,56,84,0.12)] bg-[rgba(244,247,251,0.92)] text-[#31465d]"
-          : "border-line bg-white/60 text-muted";
+    getToneByStatus(generationState.status);
+  const exportTone = getToneByStatus(exportState.status);
 
   return (
     <div className="grid gap-8">

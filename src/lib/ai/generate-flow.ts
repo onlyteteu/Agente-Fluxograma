@@ -1,8 +1,9 @@
 import "server-only";
 
-import OpenAI from "openai";
-import { zodTextFormat } from "openai/helpers/zod";
-import { sanitizeAiFlowDocument, aiFlowDocumentSchema } from "./flow-output";
+import {
+  isFlowModelConfigured,
+  requestStructuredFlowDocument,
+} from "./model-client";
 import {
   buildFlowGenerationInstructions,
   buildFlowGenerationUserPrompt,
@@ -36,20 +37,6 @@ function shouldUseSimulatorFallback() {
   return process.env.NODE_ENV !== "production";
 }
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return null;
-  }
-
-  return new OpenAI({ apiKey });
-}
-
-function getModelName() {
-  return process.env.OPENAI_MODEL ?? "gpt-4.1-mini";
-}
-
 function buildFallbackResult(processText: string, message: string): FlowGenerationResult {
   return {
     document: simulateFlowDocumentFromText(processText),
@@ -70,37 +57,68 @@ function buildRefinementFallbackResult(
   };
 }
 
-async function requestFlowFromModel(systemPrompt: string, userPrompt: string) {
-  const openai = getOpenAIClient();
+type RunFlowOperationOptions = {
+  inputErrorMessage: string;
+  missingModelMessage: string;
+  successMessage: string;
+  fallbackMessage: string;
+  prompt: {
+    system: string;
+    user: string;
+  };
+  fallback: () => FlowSchemaDocument;
+  inputIsEmpty: boolean;
+};
 
-  if (!openai) {
-    return null;
+async function runFlowOperation(
+  options: RunFlowOperationOptions,
+): Promise<FlowGenerationResult> {
+  const fallbackEnabled = shouldUseSimulatorFallback();
+
+  if (options.inputIsEmpty) {
+    throw new Error(options.inputErrorMessage);
   }
 
-  const response = await openai.responses.parse({
-    model: getModelName(),
-    input: [
-      {
-        role: "system",
-        content: systemPrompt,
-      },
-      {
-        role: "user",
-        content: userPrompt,
-      },
-    ],
-    text: {
-      format: zodTextFormat(aiFlowDocumentSchema, "flow_document"),
-    },
-  });
+  if (!isFlowModelConfigured()) {
+    if (fallbackEnabled) {
+      return {
+        document: options.fallback(),
+        message: options.fallbackMessage,
+        source: "simulator",
+      };
+    }
 
-  const parsed = response.output_parsed;
-
-  if (!parsed) {
-    throw new Error("O modelo nao retornou uma estrutura utilizavel para o fluxograma.");
+    throw new Error(options.missingModelMessage);
   }
 
-  return sanitizeAiFlowDocument(parsed);
+  try {
+    return {
+      document: (await requestStructuredFlowDocument(
+        options.prompt.system,
+        options.prompt.user,
+      )) as FlowSchemaDocument,
+      message: options.successMessage,
+      source: "ai",
+    };
+  } catch (error) {
+    if (fallbackEnabled) {
+      return {
+        document: options.fallback(),
+        message: options.fallbackMessage,
+        source: "simulator",
+      };
+    }
+
+    if (error instanceof FlowDocumentParseError) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error("O modelo nao retornou um fluxograma valido.");
+  }
 }
 
 export async function generateFlowFromText(
@@ -108,42 +126,22 @@ export async function generateFlowFromText(
 ): Promise<FlowGenerationResult> {
   const trimmed = processText.trim();
 
-  if (!trimmed) {
-    throw new Error("Descreva um processo antes de gerar o fluxograma.");
-  }
-
-  const fallbackEnabled = shouldUseSimulatorFallback();
-
-  if (!getOpenAIClient()) {
-    if (fallbackEnabled) {
-      return buildFallbackResult(
-        trimmed,
-        "API de IA nao configurada. Usando o gerador temporario local.",
-      );
-    }
-
-    throw new Error(
-      "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para gerar pelo modelo.",
-    );
-  }
-
   try {
-    return {
-      document: (await requestFlowFromModel(
-        buildFlowGenerationInstructions(),
-        buildFlowGenerationUserPrompt(trimmed),
-      )) as FlowSchemaDocument,
-      message: "Fluxograma gerado pela IA e validado com sucesso.",
-      source: "ai",
-    };
+    return await runFlowOperation({
+      inputErrorMessage: "Descreva um processo antes de gerar o fluxograma.",
+      missingModelMessage:
+        "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para gerar pelo modelo.",
+      successMessage: "Fluxograma gerado pela IA e validado com sucesso.",
+      fallbackMessage:
+        "API de IA nao configurada ou indisponivel. Usando o gerador temporario local.",
+      prompt: {
+        system: buildFlowGenerationInstructions(),
+        user: buildFlowGenerationUserPrompt(trimmed),
+      },
+      fallback: () => buildFallbackResult(trimmed, "").document,
+      inputIsEmpty: !trimmed,
+    });
   } catch (error) {
-    if (fallbackEnabled) {
-      return buildFallbackResult(
-        trimmed,
-        "A resposta da IA nao ficou valida neste momento. Aplicando o gerador temporario local.",
-      );
-    }
-
     if (error instanceof FlowDocumentParseError) {
       throw new Error(
         "A IA respondeu, mas o JSON nao passou na validacao do schema.",
@@ -169,48 +167,28 @@ export async function refineFlowFromInstruction(
 ): Promise<FlowGenerationResult> {
   const trimmedInstruction = instruction.trim();
 
-  if (!trimmedInstruction) {
-    throw new Error("Escreva uma instrucao antes de refinar o fluxograma.");
-  }
-
-  const fallbackEnabled = shouldUseSimulatorFallback();
-
-  if (!getOpenAIClient()) {
-    if (fallbackEnabled) {
-      return buildRefinementFallbackResult(
-        currentDocument,
-        trimmedInstruction,
-        "IA nao configurada. Aplicando refinamento local sobre o fluxo atual.",
-      );
-    }
-
-    throw new Error(
-      "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para refinar pelo modelo.",
-    );
-  }
-
   try {
-    return {
-      document: (await requestFlowFromModel(
-        buildFlowRefinementInstructions(),
-        buildFlowRefinementUserPrompt(
+    return await runFlowOperation({
+      inputErrorMessage: "Escreva uma instrucao antes de refinar o fluxograma.",
+      missingModelMessage:
+        "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para refinar pelo modelo.",
+      successMessage: "Fluxograma refinado pela IA e validado com sucesso.",
+      fallbackMessage:
+        "A IA nao refinou o fluxo de forma valida neste momento. Aplicando o fallback local sobre a estrutura atual.",
+      prompt: {
+        system: buildFlowRefinementInstructions(),
+        user: buildFlowRefinementUserPrompt(
           processText.trim(),
           JSON.stringify(currentDocument, null, 2),
           trimmedInstruction,
         ),
-      )) as FlowSchemaDocument,
-      message: "Fluxograma refinado pela IA e validado com sucesso.",
-      source: "ai",
-    };
+      },
+      fallback: () =>
+        buildRefinementFallbackResult(currentDocument, trimmedInstruction, "")
+          .document,
+      inputIsEmpty: !trimmedInstruction,
+    });
   } catch (error) {
-    if (fallbackEnabled) {
-      return buildRefinementFallbackResult(
-        currentDocument,
-        trimmedInstruction,
-        "A IA nao refinou o fluxo de forma valida neste momento. Aplicando o fallback local sobre a estrutura atual.",
-      );
-    }
-
     if (error instanceof FlowDocumentParseError) {
       throw new Error(
         "A IA respondeu, mas o JSON refinado nao passou na validacao do schema.",

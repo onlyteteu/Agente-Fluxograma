@@ -15,26 +15,22 @@ type FlowNodePresentation = {
 const nodePresentationByType: Record<FlowNodeType, FlowNodePresentation> = {
   start: {
     eyebrow: "Entrada",
-    description:
-      "Marca o ponto de inicio do processo e prepara a leitura do fluxo.",
+    description: "Ponto inicial do fluxo.",
     tone: "accent",
   },
   task: {
     eyebrow: "Tarefa",
-    description:
-      "Representa uma etapa executavel dentro do processo descrito.",
+    description: "Etapa principal do processo.",
     tone: "neutral",
   },
   gateway: {
     eyebrow: "Decisao",
-    description:
-      "Abre caminhos condicionais para indicar validacoes ou bifurcacoes.",
+    description: "Pergunta que divide o fluxo.",
     tone: "success",
   },
   end: {
     eyebrow: "Saida",
-    description:
-      "Indica o encerramento do fluxo em um estado pronto para entrega.",
+    description: "Encerramento do processo.",
     tone: "dark",
   },
 };

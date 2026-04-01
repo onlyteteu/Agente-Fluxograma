@@ -27,6 +27,27 @@ function normalizeNullableLabel(label: string | null) {
   return trimmed ? trimmed : undefined;
 }
 
+function normalizeEdgeLabel(label: string | undefined) {
+  if (!label) {
+    return undefined;
+  }
+
+  const normalized = label
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  if (normalized === "sim") {
+    return "Sim";
+  }
+
+  if (normalized === "nao") {
+    return "Não";
+  }
+
+  return label;
+}
+
 export function sanitizeAiFlowDocument(
   document: AiFlowDocument,
 ): FlowSchemaDocument {
@@ -39,7 +60,7 @@ export function sanitizeAiFlowDocument(
     edges: document.edges.map((edge) => ({
       source: edge.source.trim(),
       target: edge.target.trim(),
-      label: normalizeNullableLabel(edge.label),
+      label: normalizeEdgeLabel(normalizeNullableLabel(edge.label)),
     })),
   });
 }

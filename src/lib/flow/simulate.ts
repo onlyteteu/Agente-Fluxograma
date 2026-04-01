@@ -15,6 +15,25 @@ const correctionMarkers = [
   "reprov",
   "inconsisten",
 ];
+const fillerWords = new Set([
+  "o",
+  "a",
+  "os",
+  "as",
+  "um",
+  "uma",
+  "de",
+  "do",
+  "da",
+  "dos",
+  "das",
+  "para",
+  "com",
+  "que",
+  "quando",
+  "entao",
+  "então",
+]);
 
 function normalizeWhitespace(input: string) {
   return input.replace(/\s+/g, " ").trim();
@@ -43,14 +62,126 @@ function sentenceCase(input: string) {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }
 
-function shortenLabel(input: string, maxLength = 48) {
+function compactWords(input: string, maxWords: number) {
+  const words = normalizeWhitespace(input).split(" ").filter(Boolean);
+
+  if (words.length <= maxWords) {
+    return words.join(" ");
+  }
+
+  return words.slice(0, maxWords).join(" ");
+}
+
+function shortenLabel(input: string, maxLength = 36) {
   const trimmed = sentenceCase(input);
 
   if (trimmed.length <= maxLength) {
     return trimmed;
   }
 
+  const shortenedByWords = compactWords(trimmed, 5);
+
+  if (shortenedByWords.length <= maxLength) {
+    return shortenedByWords;
+  }
+
   return `${trimmed.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function cleanActionPhrase(input: string) {
+  const sanitized = normalizeWhitespace(
+    input
+      .replace(/^(?:o|a|os|as)\s+(?:cliente|usuario|usuário|sistema|equipe|time)\s+/i, "")
+      .replace(/^(?:deve|precisa|pode|vai|devera|deverá)\s+/i, "")
+      .replace(/^entao\s+/i, "")
+      .replace(/^então\s+/i, ""),
+  );
+
+  return sentenceCase(sanitized);
+}
+
+function toTaskLabel(input: string) {
+  const normalized = normalizeText(input);
+
+  if (normalized.includes("corrig") || normalized.includes("ajust")) {
+    return "Solicitar ajuste";
+  }
+
+  if (normalized.includes("reenv")) {
+    return "Aguardar reenvio";
+  }
+
+  if (normalized.includes("onboarding")) {
+    return "Iniciar onboarding";
+  }
+
+  if (normalized.includes("pagamento") && normalized.includes("valid")) {
+    return "Validar pagamento";
+  }
+
+  if (normalized.includes("pedido") && normalized.includes("registr")) {
+    return "Registrar pedido";
+  }
+
+  if (normalized.includes("document") && normalized.includes("envi")) {
+    return "Enviar documentos";
+  }
+
+  return shortenLabel(cleanActionPhrase(input));
+}
+
+function toQuestionLabel(input: string) {
+  const normalized = normalizeText(input);
+
+  if (
+    normalized.includes("pagamento") &&
+    (normalized.includes("aprov") || normalized.includes("valid"))
+  ) {
+    return "Pagamento aprovado?";
+  }
+
+  if (
+    (normalized.includes("falta") || normalized.includes("faltar")) &&
+    (normalized.includes("inform") || normalized.includes("dado"))
+  ) {
+    return "Falta alguma informação?";
+  }
+
+  if (
+    (normalized.includes("inform") || normalized.includes("dado")) &&
+    normalized.includes("complet")
+  ) {
+    return "Informações completas?";
+  }
+
+  if (normalized.includes("pedido") && normalized.includes("aprov")) {
+    return "Pedido aprovado?";
+  }
+
+  if (normalized.includes("cadastro") && normalized.includes("complet")) {
+    return "Cadastro completo?";
+  }
+
+  if (normalized.includes("document") && normalized.includes("complet")) {
+    return "Documentação completa?";
+  }
+
+  if (normalized.includes("erro")) {
+    return "Há algum erro?";
+  }
+
+  if (normalized.includes("pendenc")) {
+    return "Há pendência?";
+  }
+
+  const words = normalizeWhitespace(input)
+    .replace(/^se\s+/i, "")
+    .replace(/^que\s+/i, "")
+    .replace(/^(?:estiver|estiverem|for|forem|houver|existir)\s+/i, "")
+    .split(" ")
+    .filter((word) => !fillerWords.has(normalizeText(word)));
+
+  return shortenLabel(`${sentenceCase(words.join(" "))}?`, 32);
 }
 
 function splitProcessText(input: string) {
@@ -98,31 +229,31 @@ function stripElsePrefix(segment: string) {
 }
 
 function summarizeSegments(segments: string[]) {
-  const cleaned = segments.map((segment) => sentenceCase(segment)).filter(Boolean);
+  const cleaned = segments.map((segment) => toTaskLabel(segment)).filter(Boolean);
 
   if (cleaned.length === 0) {
     return "";
   }
 
   if (cleaned.length === 1) {
-    return shortenLabel(cleaned[0]);
+    return cleaned[0];
   }
 
   if (cleaned.length === 2) {
-    return shortenLabel(`${cleaned[0]}, depois ${cleaned[1].toLowerCase()}`);
+    return shortenLabel(`${cleaned[0]} e ${cleaned[1].toLowerCase()}`);
   }
 
-  return shortenLabel(`${cleaned[0]}, ${cleaned[1]} e outras etapas`);
+  return shortenLabel(`${cleaned[0]} e outras etapas`);
 }
 
 function compressLinearSegments(segments: string[]) {
   if (segments.length <= MAX_LINEAR_TASKS) {
-    return segments.map((segment) => shortenLabel(segment));
+    return segments.map((segment) => toTaskLabel(segment));
   }
 
   const head = segments
     .slice(0, MAX_LINEAR_TASKS - 1)
-    .map((segment) => shortenLabel(segment));
+    .map((segment) => toTaskLabel(segment));
   const tail = summarizeSegments(segments.slice(MAX_LINEAR_TASKS - 1));
 
   return [...head, tail];
@@ -152,67 +283,15 @@ function extractConditionPhrase(segment: string) {
 }
 
 function buildGatewayLabel(segment: string, contextSegments: string[] = []) {
-  const condition = normalizeText(extractConditionPhrase(segment));
-  const context = normalizeText(contextSegments.join(" "));
-  const combined = `${context} ${condition}`.trim();
-
-  if (
-    combined.includes("pagamento") &&
-    (combined.includes("aprov") || combined.includes("valid"))
-  ) {
-    return "Pagamento aprovado?";
-  }
-
-  if (
-    (combined.includes("falta") || combined.includes("faltar")) &&
-    (combined.includes("inform") || combined.includes("dado"))
-  ) {
-    return "Falta alguma informacao?";
-  }
-
-  if (
-    (combined.includes("inform") || combined.includes("dado")) &&
-    combined.includes("complet")
-  ) {
-    return "Informacoes completas?";
-  }
-
-  if (combined.includes("pedido") && combined.includes("aprov")) {
-    return "Pedido aprovado?";
-  }
-
-  if (combined.includes("cadastro") && combined.includes("complet")) {
-    return "Cadastro completo?";
-  }
-
-  if (combined.includes("document") && combined.includes("complet")) {
-    return "Documentacao completa?";
-  }
-
-  if (combined.includes("erro")) {
-    return "Existe algum erro?";
-  }
-
-  if (combined.includes("pendenc")) {
-    return "Existe alguma pendencia?";
-  }
-
-  const cleaned = sentenceCase(
-    extractConditionPhrase(segment)
-      .replace(/^que\s+/i, "")
-      .replace(/^(?:estiver|estiverem|for|forem|houver|existir)\s+/i, "")
-      .trim(),
-  );
-
-  return shortenLabel(cleaned.endsWith("?") ? cleaned : `${cleaned}?`);
+  return toQuestionLabel(`${contextSegments.join(" ")} ${extractConditionPhrase(segment)}`);
 }
 
 function buildFallbackLabel(segment?: string) {
   if (segment && isCorrectionSegment(segment)) {
-    return "Corrigir informacoes e reenviar";
+    return "Solicitar ajuste";
   }
 
-  return "Revisar dados e reenviar";
+  return "Revisar dados";
 }
 
 function buildPositiveOutcome(conditionSegment: string, remainingSegments: string[]) {
@@ -221,7 +300,7 @@ function buildPositiveOutcome(conditionSegment: string, remainingSegments: strin
   );
 
   if (gatedActionMatch?.[1]) {
-    return shortenLabel(`Seguir para ${normalizeWhitespace(gatedActionMatch[1])}`);
+    return toTaskLabel(gatedActionMatch[1]);
   }
 
   const inlineIfThenMatch = conditionSegment.match(/\bse\b\s+.+?\s*,\s*(.+)$/i);
@@ -232,7 +311,7 @@ function buildPositiveOutcome(conditionSegment: string, remainingSegments: strin
       .trim();
 
     if (positiveAction) {
-      return shortenLabel(positiveAction);
+      return toTaskLabel(positiveAction);
     }
   }
 
@@ -240,7 +319,7 @@ function buildPositiveOutcome(conditionSegment: string, remainingSegments: strin
     (segment) => !isElseSegment(segment) && !isCorrectionSegment(segment),
   );
 
-  return explicitNext ? shortenLabel(explicitNext) : "";
+  return explicitNext ? toTaskLabel(explicitNext) : "";
 }
 
 function extractNegativeOutcome(
@@ -252,13 +331,13 @@ function extractNegativeOutcome(
   );
 
   if (inlineElseMatch?.[1]) {
-    return shortenLabel(stripElsePrefix(inlineElseMatch[1]));
+    return toTaskLabel(stripElsePrefix(inlineElseMatch[1]));
   }
 
   const explicitElseSegment = remainingSegments.find((segment) => isElseSegment(segment));
 
   if (explicitElseSegment) {
-    return shortenLabel(stripElsePrefix(explicitElseSegment));
+    return toTaskLabel(stripElsePrefix(explicitElseSegment));
   }
 
   const correctionSegment = remainingSegments.find((segment) =>
@@ -276,14 +355,16 @@ function createNodeFactory() {
   const usedIds = new Map<string, number>();
 
   return (type: FlowNodeType, label: string) => {
-    const baseId = slugify(label) || type;
+    const finalLabel =
+      type === "gateway" ? toQuestionLabel(label) : shortenLabel(label, 34);
+    const baseId = slugify(finalLabel) || type;
     const currentCount = usedIds.get(baseId) ?? 0;
     usedIds.set(baseId, currentCount + 1);
 
     return {
       id: currentCount === 0 ? baseId : `${baseId}-${currentCount + 1}`,
       type,
-      label: shortenLabel(label),
+      label: finalLabel,
     };
   };
 }
@@ -293,7 +374,7 @@ function buildLinearFlowDocument(segments: string[]) {
   const nodes: FlowSchemaDocument["nodes"] = [];
   const edges: FlowSchemaDocument["edges"] = [];
 
-  const startNode = makeNode("start", segments[0]);
+  const startNode = makeNode("start", toTaskLabel(segments[0]));
   nodes.push(startNode);
 
   let currentNodeId = startNode.id;
@@ -305,7 +386,7 @@ function buildLinearFlowDocument(segments: string[]) {
     currentNodeId = taskNode.id;
   }
 
-  const endNode = makeNode("end", "Fluxo pronto para concluir");
+  const endNode = makeNode("end", "Processo concluído");
   nodes.push(endNode);
   edges.push({ source: currentNodeId, target: endNode.id });
 
@@ -326,7 +407,10 @@ function buildConditionalFlowDocument(segments: string[]) {
   const hasCorrectionLoop =
     Boolean(correctionSegment) || isCorrectionSegment(negativeOutcome);
 
-  const startNode = makeNode("start", beforeCondition[0] ?? "Inicio do processo");
+  const startNode = makeNode(
+    "start",
+    toTaskLabel(beforeCondition[0] ?? "Iniciar processo"),
+  );
   nodes.push(startNode);
 
   let anchorNodeId = startNode.id;
@@ -345,7 +429,7 @@ function buildConditionalFlowDocument(segments: string[]) {
   nodes.push(gatewayNode);
   edges.push({ source: anchorNodeId, target: gatewayNode.id });
 
-  const endNode = makeNode("end", "Fluxo pronto para concluir");
+  const endNode = makeNode("end", "Processo concluído");
   let positiveTargetId = endNode.id;
   let negativeTargetId = endNode.id;
 
@@ -371,7 +455,7 @@ function buildConditionalFlowDocument(segments: string[]) {
   edges.push({
     source: gatewayNode.id,
     target: negativeTargetId,
-    label: "Nao",
+    label: "Não",
   });
 
   if (positiveTargetId !== endNode.id) {
@@ -398,12 +482,12 @@ export function simulateFlowDocumentFromText(input: string): FlowSchemaDocument 
         {
           id: "start",
           type: "start",
-          label: "Descreva um processo para gerar o fluxo",
+          label: "Descrever processo",
         },
         {
           id: "end",
           type: "end",
-          label: "Fluxo aguardando descricao",
+          label: "Aguardando fluxo",
         },
       ],
       edges: [{ source: "start", target: "end" }],

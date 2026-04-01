@@ -39,8 +39,8 @@ type LayoutMetrics = {
 
 const nodeDimensions: Record<FlowNodeData["type"], NodeDimension> = {
   start: { width: 136, height: 136 },
-  task: { width: 296, height: 138 },
-  gateway: { width: 196, height: 196 },
+  task: { width: 312, height: 130 },
+  gateway: { width: 188, height: 188 },
   end: { width: 142, height: 142 },
 };
 
@@ -252,21 +252,21 @@ function EndNode({ data }: { data: FlowNodeData }) {
 function TaskNode({ data }: { data: FlowNodeData }) {
   return (
     <div
-      className={`relative w-[296px] rounded-[30px] border p-5 shadow-[0_24px_60px_rgba(46,35,23,0.14)] backdrop-blur ${taskPalette[data.tone]}`}
+      className={`relative w-[312px] rounded-[30px] border p-5 shadow-[0_24px_60px_rgba(46,35,23,0.14)] backdrop-blur ${taskPalette[data.tone]}`}
     >
       <BaseHandles tone="task" />
       <div className="pointer-events-none absolute left-4 top-4 h-10 w-10 rounded-xl border border-current/10 bg-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]" />
       <div className="pointer-events-none absolute left-[22px] top-[24px] h-3 w-4 rounded-sm border border-current/35" />
       <div className="pointer-events-none absolute left-[22px] top-[31px] h-px w-12 bg-current/18" />
 
-      <div className="ml-14">
+      <div className="ml-14 pr-2">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] opacity-65">
           {data.eyebrow}
         </p>
-        <h3 className="mt-3 text-[22px] leading-7 font-semibold tracking-[-0.04em]">
+        <h3 className="mt-3 text-[20px] leading-6 font-semibold tracking-[-0.04em] text-balance">
           {data.label}
         </h3>
-        <p className="mt-4 text-[14px] leading-6 opacity-80">{data.description}</p>
+        <p className="mt-3 text-[13px] leading-5 opacity-72">{data.description}</p>
       </div>
     </div>
   );
@@ -274,15 +274,15 @@ function TaskNode({ data }: { data: FlowNodeData }) {
 
 function GatewayNode({ data }: { data: FlowNodeData }) {
   return (
-    <div className="relative flex h-[196px] w-[196px] items-center justify-center">
+    <div className="relative flex h-[188px] w-[188px] items-center justify-center">
       <BaseHandles tone="gateway" />
-      <div className="absolute h-[154px] w-[154px] rotate-45 rounded-[30px] border border-[rgba(31,122,99,0.28)] bg-[linear-gradient(180deg,rgba(244,252,248,0.98),rgba(255,255,255,0.92))] shadow-[0_24px_60px_rgba(24,77,63,0.14)]" />
-      <div className="absolute h-[112px] w-[112px] rotate-45 rounded-[22px] border border-[rgba(31,122,99,0.12)] bg-white/72 backdrop-blur-sm" />
-      <div className="relative z-10 flex max-w-[126px] flex-col items-center text-center text-[#17352d]">
+      <div className="absolute h-[146px] w-[146px] rotate-45 rounded-[28px] border border-[rgba(31,122,99,0.28)] bg-[linear-gradient(180deg,rgba(244,252,248,0.98),rgba(255,255,255,0.92))] shadow-[0_24px_60px_rgba(24,77,63,0.14)]" />
+      <div className="absolute h-[106px] w-[106px] rotate-45 rounded-[20px] border border-[rgba(31,122,99,0.12)] bg-white/72 backdrop-blur-sm" />
+      <div className="relative z-10 flex max-w-[116px] flex-col items-center text-center text-[#17352d]">
         <p className="font-mono text-[10px] uppercase tracking-[0.28em] opacity-65">
           Decisao
         </p>
-        <p className="mt-3 text-[18px] leading-6 font-semibold tracking-[-0.04em]">
+        <p className="mt-3 text-[16px] leading-5 font-semibold tracking-[-0.04em] text-balance">
           {data.label}
         </p>
       </div>

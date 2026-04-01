@@ -12,7 +12,10 @@ export function buildFlowGenerationInstructions() {
     "Mantenha os ramos Sim e Nao coerentes com o texto original.",
     "Nao invente etapas que nao aparecem no texto.",
     "Para correcao, ajuste ou reenvio, use um unico loop de retorno.",
-    "Use labels curtos em portugues do Brasil.",
+    "Use labels curtos, claros e profissionais em portugues do Brasil.",
+    "Evite frases longas dentro dos nos.",
+    "Use rotulos de conexao exatamente como 'Sim' e 'Não' quando houver decisao.",
+    "Evite textos truncados; prefira labels naturalmente curtos.",
     "Garanta ids unicos e edges apontando para nodes existentes.",
   ].join(" ");
 }

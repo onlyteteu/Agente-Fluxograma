@@ -16,13 +16,13 @@ import {
   type NodeProps,
   type NodeTypes,
 } from "@xyflow/react";
+import { mockFlowDocument } from "@/lib/flow/mock";
+import type {
+  NormalizedFlowDocument,
+  NormalizedFlowNode,
+} from "@/lib/flow/types";
 
-type FlowNodeData = {
-  eyebrow: string;
-  title: string;
-  description: string;
-  tone: "accent" | "neutral" | "success" | "dark";
-};
+type FlowNodeData = NormalizedFlowNode;
 
 const NODE_WIDTH = 280;
 const NODE_HEIGHT = 152;
@@ -39,129 +39,7 @@ const nodePalette: Record<FlowNodeData["tone"], string> = {
   dark: "border-[rgba(16,14,12,0.12)] bg-[linear-gradient(180deg,#2e2822,#171411)] text-[#f6efe2]",
 };
 
-const mockNodes: Node<FlowNodeData>[] = [
-  {
-    id: "capture",
-    type: "flowCard",
-    position: { x: 0, y: 0 },
-    data: {
-      eyebrow: "Entrada",
-      title: "Usuario descreve o processo",
-      description:
-        "Um texto livre explica etapas, excecoes e pontos de decisao do fluxo.",
-      tone: "accent",
-    },
-  },
-  {
-    id: "interpret",
-    type: "flowCard",
-    position: { x: 0, y: 0 },
-    data: {
-      eyebrow: "IA",
-      title: "Estruturacao em blocos",
-      description:
-        "O prompt e transformado em etapas, conexoes e caminhos condicionais.",
-      tone: "neutral",
-    },
-  },
-  {
-    id: "validation",
-    type: "flowCard",
-    position: { x: 0, y: 0 },
-    data: {
-      eyebrow: "Decisao",
-      title: "Estrutura valida?",
-      description:
-        "Regras de consistencia verificam ordem, nomes e relacionamentos do fluxo.",
-      tone: "neutral",
-    },
-  },
-  {
-    id: "refine",
-    type: "flowCard",
-    position: { x: 0, y: 0 },
-    data: {
-      eyebrow: "Ajuste",
-      title: "Refina instrucoes",
-      description:
-        "Quando necessario, o sistema reorganiza o texto para tentar novamente.",
-      tone: "accent",
-    },
-  },
-  {
-    id: "render",
-    type: "flowCard",
-    position: { x: 0, y: 0 },
-    data: {
-      eyebrow: "Render",
-      title: "Gera fluxograma organizado",
-      description:
-        "Nos, conectores e agrupamentos sao posicionados com espaco e hierarquia visual.",
-      tone: "success",
-    },
-  },
-  {
-    id: "editing",
-    type: "flowCard",
-    position: { x: 0, y: 0 },
-    data: {
-      eyebrow: "Saida",
-      title: "Pronto para visualizar e editar",
-      description:
-        "O usuario recebe um diagrama limpo, bonito e facil de ajustar manualmente.",
-      tone: "dark",
-    },
-  },
-];
-
-const mockEdges: Edge[] = [
-  {
-    id: "capture-interpret",
-    source: "capture",
-    target: "interpret",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "interpret-validation",
-    source: "interpret",
-    target: "validation",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "validation-render",
-    source: "validation",
-    target: "render",
-    label: "Sim",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "validation-refine",
-    source: "validation",
-    target: "refine",
-    label: "Nao",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "refine-interpret",
-    source: "refine",
-    target: "interpret",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-  {
-    id: "render-editing",
-    source: "render",
-    target: "editing",
-    type: "smoothstep",
-    markerEnd: { type: MarkerType.ArrowClosed },
-  },
-];
-
-function layoutElements() {
+function layoutElements(document: NormalizedFlowDocument) {
   graph.setGraph({
     rankdir: "TB",
     ranksep: 110,
@@ -170,26 +48,28 @@ function layoutElements() {
     marginy: 28,
   });
 
-  mockNodes.forEach((node) => {
+  document.nodes.forEach((node) => {
     graph.setNode(node.id, {
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
     });
   });
 
-  mockEdges.forEach((edge) => {
+  document.edges.forEach((edge) => {
     graph.setEdge(edge.source, edge.target);
   });
 
   dagre.layout(graph);
 
-  const nodes = mockNodes.map((node) => {
+  const nodes: Node<FlowNodeData>[] = document.nodes.map((node) => {
     const position = graph.node(node.id);
 
     return {
       ...node,
       sourcePosition: Position.Bottom,
       targetPosition: Position.Top,
+      type: "flowCard",
+      data: node,
       position: {
         x: position.x - NODE_WIDTH / 2,
         y: position.y - NODE_HEIGHT / 2,
@@ -197,7 +77,7 @@ function layoutElements() {
     };
   });
 
-  const edges = mockEdges.map((edge) => ({
+  const edges: Edge[] = document.edges.map((edge) => ({
     ...edge,
     animated: edge.id !== "render-editing",
     style: {
@@ -242,7 +122,7 @@ function FlowCardNode({ data }: NodeProps<Node<FlowNodeData>>) {
             {data.eyebrow}
           </p>
           <h3 className="mt-3 text-[22px] leading-7 font-semibold tracking-[-0.04em]">
-            {data.title}
+            {data.label}
           </h3>
         </div>
         <span className="mt-1 h-3.5 w-3.5 rounded-full bg-current opacity-70" />
@@ -258,7 +138,7 @@ const nodeTypes: NodeTypes = {
 };
 
 function FlowCanvas() {
-  const { nodes, edges } = layoutElements();
+  const { nodes, edges } = layoutElements(mockFlowDocument);
 
   return (
     <div className="h-[720px] w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]">

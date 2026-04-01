@@ -35,6 +35,16 @@ function downloadDataUrl(dataUrl: string, fileName: string) {
   link.click();
 }
 
+function resolveExportTarget(element: HTMLElement) {
+  const viewport = element.querySelector(".react-flow__viewport");
+
+  if (viewport instanceof HTMLElement) {
+    return viewport;
+  }
+
+  return element;
+}
+
 export function buildPdfExportPayload(
   processText: string,
   document: FlowSchemaDocument,
@@ -53,11 +63,24 @@ export async function exportFlowPreviewAsImage(
   payload: FlowPdfExportPayload,
 ) {
   const fileName = payload.imageFileName;
+  const exportTarget = resolveExportTarget(element);
+  const bounds = element.getBoundingClientRect();
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
 
-  const dataUrl = await toPng(element, {
+  const dataUrl = await toPng(exportTarget, {
     backgroundColor: "#fbf4ea",
     cacheBust: true,
     pixelRatio: 2,
+    width,
+    height,
+    canvasWidth: width * 2,
+    canvasHeight: height * 2,
+    style: {
+      width: `${width}px`,
+      height: `${height}px`,
+      background: "#fbf4ea",
+    },
     filter: (node) => {
       if (!(node instanceof HTMLElement)) {
         return true;

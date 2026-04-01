@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import dagre from "dagre";
 import {
   Background,
@@ -12,8 +11,6 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
-  useNodesInitialized,
-  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
@@ -34,9 +31,6 @@ type NodeDimension = {
 type LayoutMetrics = {
   ranksep: number;
   nodesep: number;
-  edgesep: number;
-  branchSpread: number;
-  branchOffsetY: number;
   fitPadding: number;
   minZoom: number;
   maxZoom: number;
@@ -74,75 +68,17 @@ function getNodeDimension(type: FlowNodeData["type"]) {
 
 function getLayoutMetrics(document: NormalizedFlowDocument): LayoutMetrics {
   const nodeCount = document.nodes.length;
-  const branchCount = document.nodes.filter((node) => node.type === "gateway").length;
   const compactFlow = nodeCount <= 4;
   const mediumFlow = nodeCount <= 6;
 
   return {
-    ranksep: compactFlow ? 56 : mediumFlow ? 64 : 72,
-    nodesep: compactFlow ? 22 : 28,
-    edgesep: 10,
-    branchSpread: branchCount > 0 ? (compactFlow ? 132 : 148) : 0,
-    branchOffsetY: compactFlow ? 72 : 84,
-    fitPadding: compactFlow ? 0.08 : mediumFlow ? 0.1 : 0.11,
-    minZoom: compactFlow ? 0.88 : 0.8,
-    maxZoom: 1.32,
-    canvasHeight: compactFlow ? 520 : mediumFlow ? 590 : 650,
+    ranksep: compactFlow ? 68 : mediumFlow ? 76 : 84,
+    nodesep: compactFlow ? 28 : 36,
+    fitPadding: compactFlow ? 0.09 : mediumFlow ? 0.105 : 0.12,
+    minZoom: compactFlow ? 0.86 : 0.8,
+    maxZoom: 1.28,
+    canvasHeight: compactFlow ? 540 : mediumFlow ? 600 : 660,
   };
-}
-
-function distributeGatewayBranches(
-  nodes: Node<FlowNodeData>[],
-  edges: NormalizedFlowDocument["edges"],
-  metrics: LayoutMetrics,
-) {
-  const nodesById = new Map(nodes.map((node) => [node.id, node]));
-
-  for (const gatewayNode of nodes.filter((node) => node.data.type === "gateway")) {
-    const gatewayDimension = getNodeDimension(gatewayNode.data.type);
-    const gatewayCenterX = gatewayNode.position.x + gatewayDimension.width / 2;
-    const gatewayBottomY = gatewayNode.position.y + gatewayDimension.height;
-
-    const outgoingEdges = edges.filter((edge) => edge.source === gatewayNode.id);
-    const yesEdge = outgoingEdges.find((edge) => edge.label === "Sim");
-    const noEdge = outgoingEdges.find((edge) => edge.label === "Nao");
-
-    const yesNode = yesEdge ? nodesById.get(yesEdge.target) : undefined;
-    const noNode = noEdge ? nodesById.get(noEdge.target) : undefined;
-
-    if (yesNode && noNode && yesNode.id !== noNode.id) {
-      const yesDimension = getNodeDimension(yesNode.data.type);
-      const noDimension = getNodeDimension(noNode.data.type);
-      const branchTopY = gatewayBottomY + metrics.branchOffsetY;
-
-      yesNode.position = {
-        x: gatewayCenterX + metrics.branchSpread / 2 - yesDimension.width / 2,
-        y: Math.max(yesNode.position.y, branchTopY),
-      };
-
-      noNode.position = {
-        x: gatewayCenterX - metrics.branchSpread / 2 - noDimension.width / 2,
-        y: Math.max(noNode.position.y, branchTopY),
-      };
-      continue;
-    }
-
-    if (yesNode) {
-      const yesDimension = getNodeDimension(yesNode.data.type);
-      yesNode.position = {
-        x: gatewayCenterX - yesDimension.width / 2,
-        y: Math.max(yesNode.position.y, gatewayBottomY + metrics.branchOffsetY - 12),
-      };
-    }
-
-    if (noNode) {
-      const noDimension = getNodeDimension(noNode.data.type);
-      noNode.position = {
-        x: gatewayCenterX - noDimension.width / 2,
-        y: Math.max(noNode.position.y, gatewayBottomY + metrics.branchOffsetY - 12),
-      };
-    }
-  }
 }
 
 function layoutElements(document: NormalizedFlowDocument) {
@@ -152,10 +88,9 @@ function layoutElements(document: NormalizedFlowDocument) {
     rankdir: "TB",
     ranksep: metrics.ranksep,
     nodesep: metrics.nodesep,
-    edgesep: metrics.edgesep,
-    marginx: 12,
-    marginy: 12,
-    ranker: "tight-tree",
+    marginx: 16,
+    marginy: 16,
+    ranker: "network-simplex",
     acyclicer: "greedy",
   });
 
@@ -170,7 +105,7 @@ function layoutElements(document: NormalizedFlowDocument) {
 
   document.edges.forEach((edge) => {
     graph.setEdge(edge.source, edge.target, {
-      weight: edge.label ? 4 : 6,
+      weight: edge.label ? 3 : 6,
       minlen: edge.label ? 1 : 1,
     });
   });
@@ -194,17 +129,11 @@ function layoutElements(document: NormalizedFlowDocument) {
     };
   });
 
-  distributeGatewayBranches(rawNodes, document.edges, metrics);
-
-  const minX = Math.min(
-    ...rawNodes.map((node) => node.position.x),
-  );
+  const minX = Math.min(...rawNodes.map((node) => node.position.x));
   const maxX = Math.max(
     ...rawNodes.map((node) => node.position.x + getNodeDimension(node.data.type).width),
   );
-  const minY = Math.min(
-    ...rawNodes.map((node) => node.position.y),
-  );
+  const minY = Math.min(...rawNodes.map((node) => node.position.y));
   const maxY = Math.max(
     ...rawNodes.map((node) => node.position.y + getNodeDimension(node.data.type).height),
   );
@@ -381,32 +310,6 @@ const nodeTypes: NodeTypes = {
   flowCard: FlowCardNode,
 };
 
-function FlowViewportController({
-  flowKey,
-  metrics,
-}: {
-  flowKey: string;
-  metrics: LayoutMetrics;
-}) {
-  const initialized = useNodesInitialized();
-  const { fitView } = useReactFlow();
-
-  useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-
-    void fitView({
-      padding: metrics.fitPadding,
-      duration: 280,
-      minZoom: metrics.minZoom,
-      maxZoom: metrics.maxZoom,
-    });
-  }, [fitView, flowKey, initialized, metrics]);
-
-  return null;
-}
-
 function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
   const { nodes, edges, metrics } = layoutElements(document);
   const flowKey = `${nodes
@@ -421,6 +324,7 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
       style={{ height: metrics.canvasHeight }}
     >
       <ReactFlow
+        key={flowKey}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -440,7 +344,6 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
         elementsSelectable={false}
         className="bg-transparent"
       >
-        <FlowViewportController flowKey={flowKey} metrics={metrics} />
         <Background
           color="rgba(120, 105, 91, 0.14)"
           gap={22}

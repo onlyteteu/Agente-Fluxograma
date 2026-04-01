@@ -57,7 +57,10 @@ function splitProcessText(input: string) {
   return input
     .replace(/\r\n/g, "\n")
     .replace(/([.;!?])\s+/g, "$1\n")
-    .replace(/,\s+(?=(?:e\s+)?(?:o|a|os|as|um|uma|se|caso|senao|senão)\b)/gi, "\n")
+    .replace(
+      /,\s+(?=(?:e\s+)?(?:o|a|os|as|um|uma|se|caso|senao|senão)\b)/gi,
+      "\n",
+    )
     .split("\n")
     .map((segment) => normalizeWhitespace(segment.replace(/[.;!?]$/g, "")))
     .filter(Boolean);
@@ -85,6 +88,15 @@ function looksConditional(segment: string) {
   return containsMarker(segment, conditionalMarkers) || isElseSegment(segment);
 }
 
+function stripElsePrefix(segment: string) {
+  return normalizeWhitespace(
+    segment.replace(
+      /^(?:e\s+)?(?:senao|senão|caso contrario|caso contrário)\s*,?\s*/i,
+      "",
+    ),
+  );
+}
+
 function summarizeSegments(segments: string[]) {
   const cleaned = segments.map((segment) => sentenceCase(segment)).filter(Boolean);
 
@@ -108,19 +120,89 @@ function compressLinearSegments(segments: string[]) {
     return segments.map((segment) => shortenLabel(segment));
   }
 
-  const head = segments.slice(0, MAX_LINEAR_TASKS - 1).map((segment) => shortenLabel(segment));
+  const head = segments
+    .slice(0, MAX_LINEAR_TASKS - 1)
+    .map((segment) => shortenLabel(segment));
   const tail = summarizeSegments(segments.slice(MAX_LINEAR_TASKS - 1));
 
   return [...head, tail];
 }
 
-function buildGatewayLabel(segment: string) {
-  const withoutElse = segment
-    .replace(/\b(senao|senão|caso contrario|caso contrário)\b.*$/i, "")
-    .trim();
-  const match = withoutElse.match(/\bse\b\s+(.+)/i);
-  const rawCondition = match?.[1] ?? withoutElse;
-  const cleaned = sentenceCase(rawCondition.replace(/^que\s+/i, "").trim());
+function extractConditionPhrase(segment: string) {
+  const withoutElse = normalizeWhitespace(
+    segment.replace(/\b(senao|senão|caso contrario|caso contrário)\b.*$/i, ""),
+  );
+  const inlineIfThenMatch = withoutElse.match(/\bse\b\s+(.+?)\s*,\s*.+$/i);
+
+  if (inlineIfThenMatch?.[1]) {
+    return inlineIfThenMatch[1];
+  }
+
+  const gatedActionMatch = withoutElse.match(
+    /(?:segue|continua|prossegue|avanca|avança|vai)\s+(?:para\s+)?(.+?)\s+\bse\b\s+(.+)/i,
+  );
+
+  if (gatedActionMatch?.[2]) {
+    return gatedActionMatch[2];
+  }
+
+  const standaloneIfMatch = withoutElse.match(/\bse\b\s+(.+)/i);
+
+  return standaloneIfMatch?.[1] ?? withoutElse;
+}
+
+function buildGatewayLabel(segment: string, contextSegments: string[] = []) {
+  const condition = normalizeText(extractConditionPhrase(segment));
+  const context = normalizeText(contextSegments.join(" "));
+  const combined = `${context} ${condition}`.trim();
+
+  if (
+    combined.includes("pagamento") &&
+    (combined.includes("aprov") || combined.includes("valid"))
+  ) {
+    return "Pagamento aprovado?";
+  }
+
+  if (
+    (combined.includes("falta") || combined.includes("faltar")) &&
+    (combined.includes("inform") || combined.includes("dado"))
+  ) {
+    return "Falta alguma informacao?";
+  }
+
+  if (
+    (combined.includes("inform") || combined.includes("dado")) &&
+    combined.includes("complet")
+  ) {
+    return "Informacoes completas?";
+  }
+
+  if (combined.includes("pedido") && combined.includes("aprov")) {
+    return "Pedido aprovado?";
+  }
+
+  if (combined.includes("cadastro") && combined.includes("complet")) {
+    return "Cadastro completo?";
+  }
+
+  if (combined.includes("document") && combined.includes("complet")) {
+    return "Documentacao completa?";
+  }
+
+  if (combined.includes("erro")) {
+    return "Existe algum erro?";
+  }
+
+  if (combined.includes("pendenc")) {
+    return "Existe alguma pendencia?";
+  }
+
+  const cleaned = sentenceCase(
+    extractConditionPhrase(segment)
+      .replace(/^que\s+/i, "")
+      .replace(/^(?:estiver|estiverem|for|forem|houver|existir)\s+/i, "")
+      .trim(),
+  );
 
   return shortenLabel(cleaned.endsWith("?") ? cleaned : `${cleaned}?`);
 }
@@ -134,32 +216,60 @@ function buildFallbackLabel(segment?: string) {
 }
 
 function buildPositiveOutcome(conditionSegment: string, remainingSegments: string[]) {
-  const lower = normalizeText(conditionSegment);
-  const regex =
-    /(?:segue(?:\s+para)?|continua(?:\s+para)?|prossegue(?:\s+para)?|avanca(?:\s+para)?|vai\s+para)\s+(.+?)\s+\bse\b/i;
-  const match = conditionSegment.match(regex);
+  const gatedActionMatch = conditionSegment.match(
+    /(?:segue(?:\s+para)?|continua(?:\s+para)?|prossegue(?:\s+para)?|avanca(?:\s+para)?|vai\s+para)\s+(.+?)\s+\bse\b/i,
+  );
 
-  if (match?.[1]) {
-    return shortenLabel(`Seguir para ${match[1]}`);
+  if (gatedActionMatch?.[1]) {
+    return shortenLabel(`Seguir para ${normalizeWhitespace(gatedActionMatch[1])}`);
+  }
+
+  const inlineIfThenMatch = conditionSegment.match(/\bse\b\s+.+?\s*,\s*(.+)$/i);
+
+  if (inlineIfThenMatch?.[1]) {
+    const positiveAction = inlineIfThenMatch[1]
+      .replace(/\b(senao|senão|caso contrario|caso contrário)\b.*$/i, "")
+      .trim();
+
+    if (positiveAction) {
+      return shortenLabel(positiveAction);
+    }
   }
 
   const explicitNext = remainingSegments.find(
     (segment) => !isElseSegment(segment) && !isCorrectionSegment(segment),
   );
 
-  if (explicitNext) {
-    return shortenLabel(explicitNext);
+  return explicitNext ? shortenLabel(explicitNext) : "";
+}
+
+function extractNegativeOutcome(
+  conditionSegment: string,
+  remainingSegments: string[],
+) {
+  const inlineElseMatch = conditionSegment.match(
+    /\b(?:senao|senão|caso contrario|caso contrário)\b\s*,?\s*(.+)$/i,
+  );
+
+  if (inlineElseMatch?.[1]) {
+    return shortenLabel(stripElsePrefix(inlineElseMatch[1]));
   }
 
-  if (lower.includes("aprov")) {
-    return "Seguir com a aprovacao";
+  const explicitElseSegment = remainingSegments.find((segment) => isElseSegment(segment));
+
+  if (explicitElseSegment) {
+    return shortenLabel(stripElsePrefix(explicitElseSegment));
   }
 
-  if (lower.includes("valid")) {
-    return "Continuar com o processo validado";
+  const correctionSegment = remainingSegments.find((segment) =>
+    isCorrectionSegment(segment),
+  );
+
+  if (correctionSegment) {
+    return buildFallbackLabel(correctionSegment);
   }
 
-  return "Seguir para a proxima etapa";
+  return "";
 }
 
 function createNodeFactory() {
@@ -210,64 +320,70 @@ function buildConditionalFlowDocument(segments: string[]) {
   const conditionSegment = segments[conditionIndex] ?? segments[0];
   const beforeCondition = segments.slice(0, Math.max(conditionIndex, 0));
   const afterCondition = segments.slice(conditionIndex + 1);
-  const explicitElseSegment = afterCondition.find((segment) => isElseSegment(segment));
   const correctionSegment = afterCondition.find((segment) => isCorrectionSegment(segment));
-  const hasCorrectionLoop = Boolean(correctionSegment);
+  const positiveOutcome = buildPositiveOutcome(conditionSegment, afterCondition);
+  const negativeOutcome = extractNegativeOutcome(conditionSegment, afterCondition);
+  const hasCorrectionLoop =
+    Boolean(correctionSegment) || isCorrectionSegment(negativeOutcome);
 
-  const startNode = makeNode(
-    "start",
-    beforeCondition[0] ?? "Inicio do processo",
-  );
+  const startNode = makeNode("start", beforeCondition[0] ?? "Inicio do processo");
   nodes.push(startNode);
 
-  let loopTargetId = startNode.id;
+  let anchorNodeId = startNode.id;
 
   if (beforeCondition.length > 1) {
-    const preTaskNode = makeNode(
-      "task",
-      summarizeSegments(beforeCondition.slice(1, 3)),
-    );
+    const preTaskNode = makeNode("task", summarizeSegments(beforeCondition.slice(1, 3)));
     nodes.push(preTaskNode);
     edges.push({ source: startNode.id, target: preTaskNode.id });
-    loopTargetId = preTaskNode.id;
+    anchorNodeId = preTaskNode.id;
   }
 
-  const gatewayNode = makeNode("gateway", buildGatewayLabel(conditionSegment));
-  nodes.push(gatewayNode);
-  edges.push({ source: loopTargetId, target: gatewayNode.id });
-
-  const positiveTaskNode = makeNode(
-    "task",
-    buildPositiveOutcome(conditionSegment, afterCondition),
+  const gatewayNode = makeNode(
+    "gateway",
+    buildGatewayLabel(conditionSegment, beforeCondition),
   );
-  nodes.push(positiveTaskNode);
+  nodes.push(gatewayNode);
+  edges.push({ source: anchorNodeId, target: gatewayNode.id });
+
+  const endNode = makeNode("end", "Fluxo pronto para concluir");
+  let positiveTargetId = endNode.id;
+  let negativeTargetId = endNode.id;
+
+  if (positiveOutcome) {
+    const positiveTaskNode = makeNode("task", positiveOutcome);
+    nodes.push(positiveTaskNode);
+    positiveTargetId = positiveTaskNode.id;
+  }
+
+  if (negativeOutcome) {
+    const negativeTaskNode = makeNode("task", negativeOutcome);
+    nodes.push(negativeTaskNode);
+    negativeTargetId = negativeTaskNode.id;
+  }
+
+  nodes.push(endNode);
+
   edges.push({
     source: gatewayNode.id,
-    target: positiveTaskNode.id,
+    target: positiveTargetId,
     label: "Sim",
   });
-
-  const negativeTaskNode = makeNode(
-    "task",
-    explicitElseSegment && !isCorrectionSegment(explicitElseSegment)
-      ? explicitElseSegment
-      : buildFallbackLabel(correctionSegment ?? explicitElseSegment ?? conditionSegment),
-  );
-  nodes.push(negativeTaskNode);
   edges.push({
     source: gatewayNode.id,
-    target: negativeTaskNode.id,
+    target: negativeTargetId,
     label: "Nao",
   });
 
-  const endNode = makeNode("end", "Fluxo pronto para concluir");
-  nodes.push(endNode);
-  edges.push({ source: positiveTaskNode.id, target: endNode.id });
+  if (positiveTargetId !== endNode.id) {
+    edges.push({ source: positiveTargetId, target: endNode.id });
+  }
 
-  if (hasCorrectionLoop || isCorrectionSegment(negativeTaskNode.label)) {
-    edges.push({ source: negativeTaskNode.id, target: loopTargetId });
-  } else {
-    edges.push({ source: negativeTaskNode.id, target: endNode.id });
+  if (negativeTargetId !== endNode.id) {
+    if (hasCorrectionLoop) {
+      edges.push({ source: negativeTargetId, target: gatewayNode.id });
+    } else {
+      edges.push({ source: negativeTargetId, target: endNode.id });
+    }
   }
 
   return { nodes, edges };

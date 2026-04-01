@@ -10,10 +10,8 @@ import {
 import { sampleFlowDocumentJson } from "@/lib/flow/example";
 import { FlowDocumentParseError } from "@/lib/flow/parser";
 import { resolveNormalizedFlowDocumentFromJson } from "@/lib/flow/resolve";
-import {
-  simulateFlowDocumentFromText,
-  stringifyFlowDocument,
-} from "@/lib/flow/simulate";
+import { stringifyFlowDocument } from "@/lib/flow/simulate";
+import { requestFlowGeneration } from "@/lib/flow/generate-client";
 import type { NormalizedFlowDocument } from "@/lib/flow/types";
 import { FlowPreview } from "./flow-preview";
 
@@ -43,8 +41,9 @@ const initialDocument = buildInitialDocument();
 export function FlowWorkbench() {
   const [source, setSource] = useState(sampleFlowDocumentJson);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [generationMessage, setGenerationMessage] = useState(
-    "Pronto para gerar uma estrutura simulada compativel com o schema.",
+    "Pronto para enviar o texto ao gerador principal da aplicacao.",
   );
   const [document, setDocument] =
     useState<NormalizedFlowDocument>(initialDocument);
@@ -102,16 +101,30 @@ export function FlowWorkbench() {
     });
   }, [deferredSource]);
 
-  function handleGenerateFlow() {
-    const simulatedDocument = simulateFlowDocumentFromText(processText);
-    const nextSource = stringifyFlowDocument(simulatedDocument);
+  async function handleGenerateFlow() {
+    setIsGenerating(true);
+    setGenerationMessage("Gerando fluxograma a partir do texto...");
 
-    startTransition(() => {
-      setSource(nextSource);
-      setGenerationMessage(
-        "Estrutura simulada gerada a partir do texto e enviada para o canvas.",
-      );
-    });
+    try {
+      const result = await requestFlowGeneration(processText);
+      const nextSource = stringifyFlowDocument(result.document);
+
+      startTransition(() => {
+        setSource(nextSource);
+        setGenerationMessage(result.message);
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel gerar o fluxograma agora.";
+
+      startTransition(() => {
+        setGenerationMessage(message);
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   return (
@@ -162,10 +175,10 @@ export function FlowWorkbench() {
                 <button
                   type="button"
                   onClick={handleGenerateFlow}
-                  disabled={processText.trim().length === 0}
+                  disabled={processText.trim().length === 0 || isGenerating}
                   className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition hover:bg-[#2f2a24] disabled:cursor-not-allowed disabled:bg-[#7f766c]"
                 >
-                  Gerar estrutura simulada
+                  {isGenerating ? "Gerando..." : "Gerar fluxograma"}
                 </button>
                 {promptSuggestions.map((suggestion) => (
                   <button
@@ -201,8 +214,8 @@ export function FlowWorkbench() {
                 </p>
                 <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/6 p-4 font-mono text-[12px] leading-6 text-white/82">
                   <div>{`input: "${processText.slice(0, 84)}${processText.length > 84 ? "..." : ""}"`}</div>
-                  <div>output: flow-schema (simulado)</div>
-                  <div>mode: temporary-local-generator</div>
+                  <div>output: flow-schema validado</div>
+                  <div>mode: model-or-fallback</div>
                 </div>
               </article>
 
@@ -232,9 +245,9 @@ export function FlowWorkbench() {
                 </div>
 
                 <div className="mt-4 rounded-[1.25rem] border border-dashed border-line bg-white/40 p-4 text-sm leading-6 text-muted">
-                  Este botao agora gera uma estrutura temporaria local. Na
-                  proxima fase, ele pode trocar o simulador por uma chamada real
-                  de IA sem mudar a interface principal.
+                  O botao agora usa a camada real de geracao. Se a IA nao estiver
+                  configurada ou falhar durante o desenvolvimento, o fallback
+                  local pode assumir sem mudar a interface.
                 </div>
               </article>
             </div>

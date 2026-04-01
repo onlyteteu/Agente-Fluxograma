@@ -23,6 +23,13 @@ type ValidationState = {
   edgeCount: number;
 };
 
+type GenerationState = {
+  status: "idle" | "loading" | "success" | "error";
+  title: string;
+  detail: string;
+  source?: "ai" | "simulator";
+};
+
 const exampleProcessPrompt = `Quando um novo cliente chega, a equipe comercial registra o pedido, o financeiro valida pagamento, e o projeto so segue para onboarding se tudo estiver aprovado. Se faltar algum dado, o cliente recebe uma solicitacao de ajuste antes de continuar.`;
 
 const promptSuggestions = [
@@ -42,11 +49,14 @@ export function FlowWorkbench() {
   const [source, setSource] = useState(sampleFlowDocumentJson);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generationMessage, setGenerationMessage] = useState(
-    "Pronto para enviar o texto ao gerador principal da aplicacao.",
-  );
+  const [generationState, setGenerationState] = useState<GenerationState>({
+    status: "idle",
+    title: "Pronto para gerar",
+    detail: "Descreva o processo e envie o texto para montar o fluxograma.",
+  });
   const [document, setDocument] =
     useState<NormalizedFlowDocument>(initialDocument);
+  const [hasGeneratedFlow, setHasGeneratedFlow] = useState(false);
   const lastValidCountsRef = useRef({
     nodeCount: initialDocument.nodes.length,
     edgeCount: initialDocument.edges.length,
@@ -101,9 +111,48 @@ export function FlowWorkbench() {
     });
   }, [deferredSource]);
 
+  function handleLoadExample() {
+    setProcessText(exampleProcessPrompt);
+    setGenerationState({
+      status: "idle",
+      title: "Exemplo carregado",
+      detail: "O texto de exemplo esta pronto para uma nova geracao.",
+    });
+  }
+
+  function handleResetWorkbench() {
+    startTransition(() => {
+      setProcessText("");
+      setSource(sampleFlowDocumentJson);
+      setDocument(initialDocument);
+      lastValidCountsRef.current = {
+        nodeCount: initialDocument.nodes.length,
+        edgeCount: initialDocument.edges.length,
+      };
+      setValidation({
+        status: "valid",
+        message: "JSON valido e pronto para renderizar.",
+        issues: [],
+        nodeCount: initialDocument.nodes.length,
+        edgeCount: initialDocument.edges.length,
+      });
+      setHasGeneratedFlow(false);
+      setGenerationState({
+        status: "idle",
+        title: "Tela limpa",
+        detail: "Escreva um novo processo para comecar outra geracao.",
+      });
+    });
+  }
+
   async function handleGenerateFlow() {
     setIsGenerating(true);
-    setGenerationMessage("Gerando fluxograma a partir do texto...");
+    setGenerationState({
+      status: "loading",
+      title: "Gerando fluxograma",
+      detail:
+        "Organizando etapas, decisoes e conexoes para montar um diagrama claro.",
+    });
 
     try {
       const result = await requestFlowGeneration(processText);
@@ -111,7 +160,16 @@ export function FlowWorkbench() {
 
       startTransition(() => {
         setSource(nextSource);
-        setGenerationMessage(result.message);
+        setHasGeneratedFlow(true);
+        setGenerationState({
+          status: "success",
+          title:
+            result.source === "ai"
+              ? "Fluxograma atualizado"
+              : "Fluxograma gerado com fallback",
+          detail: result.message,
+          source: result.source,
+        });
       });
     } catch (error) {
       const message =
@@ -120,12 +178,25 @@ export function FlowWorkbench() {
           : "Nao foi possivel gerar o fluxograma agora.";
 
       startTransition(() => {
-        setGenerationMessage(message);
+        setGenerationState({
+          status: "error",
+          title: "Nao foi possivel gerar agora",
+          detail: `${message} O ultimo resultado valido foi mantido no preview.`,
+        });
       });
     } finally {
       setIsGenerating(false);
     }
   }
+
+  const generationTone =
+    generationState.status === "success"
+      ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.9)] text-[#1d5f4f]"
+      : generationState.status === "error"
+        ? "border-[rgba(201,111,59,0.2)] bg-[#fff6ef] text-[#8f4a22]"
+        : generationState.status === "loading"
+          ? "border-[rgba(34,56,84,0.12)] bg-[rgba(244,247,251,0.92)] text-[#31465d]"
+          : "border-line bg-white/60 text-muted";
 
   return (
     <div className="grid gap-8">
@@ -148,7 +219,7 @@ export function FlowWorkbench() {
 
             <button
               type="button"
-              onClick={() => setProcessText(exampleProcessPrompt)}
+              onClick={handleLoadExample}
               className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
             >
               Carregar exemplo guiado
@@ -178,7 +249,27 @@ export function FlowWorkbench() {
                   disabled={processText.trim().length === 0 || isGenerating}
                   className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition hover:bg-[#2f2a24] disabled:cursor-not-allowed disabled:bg-[#7f766c]"
                 >
-                  {isGenerating ? "Gerando..." : "Gerar fluxograma"}
+                  {isGenerating
+                    ? "Gerando..."
+                    : hasGeneratedFlow
+                      ? "Atualizar fluxograma"
+                      : "Gerar fluxograma"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGenerateFlow}
+                  disabled={processText.trim().length === 0 || isGenerating}
+                  className="rounded-full border border-line bg-white/80 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Regenerar fluxo
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetWorkbench}
+                  disabled={isGenerating}
+                  className="rounded-full border border-line/90 bg-transparent px-5 py-3 text-sm font-medium text-muted transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Limpar e recomecar
                 </button>
                 {promptSuggestions.map((suggestion) => (
                   <button
@@ -198,8 +289,39 @@ export function FlowWorkbench() {
                 ))}
               </div>
 
-              <div className="mt-4 rounded-[1.25rem] border border-dashed border-line bg-white/60 p-4 text-sm leading-6 text-muted">
-                {generationMessage}
+              <div
+                className={`mt-4 rounded-[1.25rem] border p-4 transition ${generationTone}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                      {generationState.status === "loading"
+                        ? "Processando"
+                        : generationState.status === "success"
+                          ? "Sucesso"
+                          : generationState.status === "error"
+                            ? "Geracao"
+                            : "Estado"}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {generationState.title}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 opacity-85">
+                      {generationState.detail}
+                    </p>
+                  </div>
+                  <div
+                    className={`mt-1 h-3 w-3 shrink-0 rounded-full ${
+                      generationState.status === "success"
+                        ? "bg-[#1f7a63]"
+                        : generationState.status === "error"
+                          ? "bg-[#c96f3b]"
+                          : generationState.status === "loading"
+                            ? "animate-pulse bg-[#45617f]"
+                            : "bg-[#b7ab9a]"
+                    }`}
+                  />
+                </div>
               </div>
             </div>
 
@@ -395,6 +517,24 @@ export function FlowWorkbench() {
             <div className="absolute bottom-10 right-12 h-40 w-40 rounded-full bg-accent-strong/15 blur-3xl" />
 
             <div className="relative rounded-[2.25rem] border border-line bg-surface p-4 shadow-[var(--shadow)] sm:p-5">
+              {isGenerating ? (
+                <div className="pointer-events-none absolute inset-5 z-10 flex items-start justify-end">
+                  <div className="rounded-full border border-[rgba(34,56,84,0.12)] bg-white/88 px-4 py-2 text-sm text-[#31465d] shadow-[0_18px_40px_rgba(38,32,24,0.12)] backdrop-blur">
+                    Gerando novo fluxograma...
+                  </div>
+                </div>
+              ) : null}
+
+              {generationState.status === "success" ? (
+                <div className="pointer-events-none absolute inset-x-5 top-5 z-10 flex justify-end">
+                  <div className="rounded-full border border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.92)] px-4 py-2 text-sm text-[#1d5f4f] shadow-[0_18px_40px_rgba(38,32,24,0.1)] backdrop-blur">
+                    {generationState.source === "simulator"
+                      ? "Preview atualizado com fallback"
+                      : "Preview atualizado"}
+                  </div>
+                </div>
+              ) : null}
+
               <FlowPreview document={document} />
             </div>
           </section>

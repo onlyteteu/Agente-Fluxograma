@@ -85,6 +85,24 @@ function formatSchemaIssues(error: ZodError) {
   });
 }
 
+export function parseFlowDocumentJson(input: string): FlowSchemaDocument {
+  try {
+    return parseFlowDocument(JSON.parse(input) as unknown);
+  } catch (error) {
+    if (error instanceof FlowDocumentParseError) {
+      throw error;
+    }
+
+    if (error instanceof SyntaxError) {
+      throw new FlowDocumentParseError("The flowchart JSON is not valid.", [
+        error.message,
+      ]);
+    }
+
+    throw error;
+  }
+}
+
 export function parseFlowDocument(input: unknown): FlowSchemaDocument {
   try {
     const document = flowSchemaDocumentSchema.parse(input);

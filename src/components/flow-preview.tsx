@@ -16,7 +16,6 @@ import {
   type NodeProps,
   type NodeTypes,
 } from "@xyflow/react";
-import { mockFlowDocument } from "@/lib/flow/mock";
 import type {
   NormalizedFlowDocument,
   NormalizedFlowNode,
@@ -79,7 +78,7 @@ function layoutElements(document: NormalizedFlowDocument) {
 
   const edges: Edge[] = document.edges.map((edge) => ({
     ...edge,
-    animated: edge.id !== "render-editing",
+    animated: !edge.label,
     style: {
       stroke: edge.label ? "#1f7a63" : "#7b6f62",
       strokeWidth: edge.label ? 2.4 : 2,
@@ -137,14 +136,18 @@ const nodeTypes: NodeTypes = {
   flowCard: FlowCardNode,
 };
 
-function FlowCanvas() {
-  const { nodes, edges } = layoutElements(mockFlowDocument);
+function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
+  const { nodes, edges } = layoutElements(document);
+  const flowKey = `${nodes.map((node) => node.id).join("|")}::${edges
+    .map((edge) => edge.id)
+    .join("|")}`;
 
   return (
     <div className="h-[720px] w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]">
       <ReactFlow
-        defaultNodes={nodes}
-        defaultEdges={edges}
+        key={flowKey}
+        nodes={nodes}
+        edges={edges}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={{ padding: 0.16, minZoom: 0.8 }}
@@ -184,10 +187,10 @@ function FlowCanvas() {
   );
 }
 
-export function FlowPreview() {
+export function FlowPreview({ document }: { document: NormalizedFlowDocument }) {
   return (
     <ReactFlowProvider>
-      <FlowCanvas />
+      <FlowCanvas document={document} />
     </ReactFlowProvider>
   );
 }

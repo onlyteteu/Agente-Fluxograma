@@ -31,6 +31,18 @@ type NodeDimension = {
   height: number;
 };
 
+type LayoutMetrics = {
+  ranksep: number;
+  nodesep: number;
+  edgesep: number;
+  branchSpread: number;
+  branchOffsetY: number;
+  fitPadding: number;
+  minZoom: number;
+  maxZoom: number;
+  canvasHeight: number;
+};
+
 const nodeDimensions: Record<FlowNodeData["type"], NodeDimension> = {
   start: { width: 136, height: 136 },
   task: { width: 296, height: 138 },
@@ -60,13 +72,91 @@ function getNodeDimension(type: FlowNodeData["type"]) {
   return nodeDimensions[type];
 }
 
+function getLayoutMetrics(document: NormalizedFlowDocument): LayoutMetrics {
+  const nodeCount = document.nodes.length;
+  const branchCount = document.nodes.filter((node) => node.type === "gateway").length;
+  const compactFlow = nodeCount <= 4;
+  const mediumFlow = nodeCount <= 6;
+
+  return {
+    ranksep: compactFlow ? 56 : mediumFlow ? 64 : 72,
+    nodesep: compactFlow ? 22 : 28,
+    edgesep: 10,
+    branchSpread: branchCount > 0 ? (compactFlow ? 132 : 148) : 0,
+    branchOffsetY: compactFlow ? 72 : 84,
+    fitPadding: compactFlow ? 0.08 : mediumFlow ? 0.1 : 0.11,
+    minZoom: compactFlow ? 0.88 : 0.8,
+    maxZoom: 1.32,
+    canvasHeight: compactFlow ? 520 : mediumFlow ? 590 : 650,
+  };
+}
+
+function distributeGatewayBranches(
+  nodes: Node<FlowNodeData>[],
+  edges: NormalizedFlowDocument["edges"],
+  metrics: LayoutMetrics,
+) {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+
+  for (const gatewayNode of nodes.filter((node) => node.data.type === "gateway")) {
+    const gatewayDimension = getNodeDimension(gatewayNode.data.type);
+    const gatewayCenterX = gatewayNode.position.x + gatewayDimension.width / 2;
+    const gatewayBottomY = gatewayNode.position.y + gatewayDimension.height;
+
+    const outgoingEdges = edges.filter((edge) => edge.source === gatewayNode.id);
+    const yesEdge = outgoingEdges.find((edge) => edge.label === "Sim");
+    const noEdge = outgoingEdges.find((edge) => edge.label === "Nao");
+
+    const yesNode = yesEdge ? nodesById.get(yesEdge.target) : undefined;
+    const noNode = noEdge ? nodesById.get(noEdge.target) : undefined;
+
+    if (yesNode && noNode && yesNode.id !== noNode.id) {
+      const yesDimension = getNodeDimension(yesNode.data.type);
+      const noDimension = getNodeDimension(noNode.data.type);
+      const branchTopY = gatewayBottomY + metrics.branchOffsetY;
+
+      yesNode.position = {
+        x: gatewayCenterX + metrics.branchSpread / 2 - yesDimension.width / 2,
+        y: Math.max(yesNode.position.y, branchTopY),
+      };
+
+      noNode.position = {
+        x: gatewayCenterX - metrics.branchSpread / 2 - noDimension.width / 2,
+        y: Math.max(noNode.position.y, branchTopY),
+      };
+      continue;
+    }
+
+    if (yesNode) {
+      const yesDimension = getNodeDimension(yesNode.data.type);
+      yesNode.position = {
+        x: gatewayCenterX - yesDimension.width / 2,
+        y: Math.max(yesNode.position.y, gatewayBottomY + metrics.branchOffsetY - 12),
+      };
+    }
+
+    if (noNode) {
+      const noDimension = getNodeDimension(noNode.data.type);
+      noNode.position = {
+        x: gatewayCenterX - noDimension.width / 2,
+        y: Math.max(noNode.position.y, gatewayBottomY + metrics.branchOffsetY - 12),
+      };
+    }
+  }
+}
+
 function layoutElements(document: NormalizedFlowDocument) {
+  const metrics = getLayoutMetrics(document);
+
   graph.setGraph({
     rankdir: "TB",
-    ranksep: 84,
-    nodesep: 34,
+    ranksep: metrics.ranksep,
+    nodesep: metrics.nodesep,
+    edgesep: metrics.edgesep,
     marginx: 12,
     marginy: 12,
+    ranker: "tight-tree",
+    acyclicer: "greedy",
   });
 
   document.nodes.forEach((node) => {
@@ -79,7 +169,10 @@ function layoutElements(document: NormalizedFlowDocument) {
   });
 
   document.edges.forEach((edge) => {
-    graph.setEdge(edge.source, edge.target);
+    graph.setEdge(edge.source, edge.target, {
+      weight: edge.label ? 4 : 6,
+      minlen: edge.label ? 1 : 1,
+    });
   });
 
   dagre.layout(graph);
@@ -100,6 +193,8 @@ function layoutElements(document: NormalizedFlowDocument) {
       },
     };
   });
+
+  distributeGatewayBranches(rawNodes, document.edges, metrics);
 
   const minX = Math.min(
     ...rawNodes.map((node) => node.position.x),
@@ -154,7 +249,7 @@ function layoutElements(document: NormalizedFlowDocument) {
     },
   }));
 
-  return { nodes, edges };
+  return { nodes, edges, metrics };
 }
 
 function BaseHandles({ tone }: { tone: "start" | "task" | "gateway" | "end" }) {
@@ -286,7 +381,13 @@ const nodeTypes: NodeTypes = {
   flowCard: FlowCardNode,
 };
 
-function FlowViewportController({ flowKey }: { flowKey: string }) {
+function FlowViewportController({
+  flowKey,
+  metrics,
+}: {
+  flowKey: string;
+  metrics: LayoutMetrics;
+}) {
   const initialized = useNodesInitialized();
   const { fitView } = useReactFlow();
 
@@ -296,18 +397,18 @@ function FlowViewportController({ flowKey }: { flowKey: string }) {
     }
 
     void fitView({
-      padding: 0.11,
+      padding: metrics.fitPadding,
       duration: 280,
-      minZoom: 0.8,
-      maxZoom: 1.3,
+      minZoom: metrics.minZoom,
+      maxZoom: metrics.maxZoom,
     });
-  }, [fitView, flowKey, initialized]);
+  }, [fitView, flowKey, initialized, metrics]);
 
   return null;
 }
 
 function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
-  const { nodes, edges } = layoutElements(document);
+  const { nodes, edges, metrics } = layoutElements(document);
   const flowKey = `${nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.type}`)
     .join("|")}::${edges
@@ -315,15 +416,22 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
     .join("|")}`;
 
   return (
-    <div className="h-[660px] w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]">
+    <div
+      className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
+      style={{ height: metrics.canvasHeight }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.11, minZoom: 0.8, maxZoom: 1.3 }}
+        fitViewOptions={{
+          padding: metrics.fitPadding,
+          minZoom: metrics.minZoom,
+          maxZoom: metrics.maxZoom,
+        }}
         minZoom={0.72}
-        maxZoom={1.3}
+        maxZoom={metrics.maxZoom}
         attributionPosition="bottom-left"
         proOptions={{ hideAttribution: true }}
         panOnScroll
@@ -332,10 +440,10 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
         elementsSelectable={false}
         className="bg-transparent"
       >
-        <FlowViewportController flowKey={flowKey} />
+        <FlowViewportController flowKey={flowKey} metrics={metrics} />
         <Background
           color="rgba(120, 105, 91, 0.14)"
-          gap={24}
+          gap={22}
           size={1.1}
           variant={BackgroundVariant.Dots}
         />

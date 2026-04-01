@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import dagre from "dagre";
 import {
   Background,
@@ -11,6 +12,8 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
+  useNodesInitialized,
+  useReactFlow,
   type Edge,
   type Node,
   type NodeProps,
@@ -41,10 +44,10 @@ const nodePalette: Record<FlowNodeData["tone"], string> = {
 function layoutElements(document: NormalizedFlowDocument) {
   graph.setGraph({
     rankdir: "TB",
-    ranksep: 110,
-    nodesep: 54,
-    marginx: 28,
-    marginy: 28,
+    ranksep: 78,
+    nodesep: 30,
+    marginx: 12,
+    marginy: 12,
   });
 
   document.nodes.forEach((node) => {
@@ -60,7 +63,7 @@ function layoutElements(document: NormalizedFlowDocument) {
 
   dagre.layout(graph);
 
-  const nodes: Node<FlowNodeData>[] = document.nodes.map((node) => {
+  const rawNodes: Node<FlowNodeData>[] = document.nodes.map((node) => {
     const position = graph.node(node.id);
 
     return {
@@ -75,6 +78,21 @@ function layoutElements(document: NormalizedFlowDocument) {
       },
     };
   });
+
+  const minX = Math.min(...rawNodes.map((node) => node.position.x));
+  const maxX = Math.max(...rawNodes.map((node) => node.position.x + NODE_WIDTH));
+  const minY = Math.min(...rawNodes.map((node) => node.position.y));
+  const maxY = Math.max(...rawNodes.map((node) => node.position.y + NODE_HEIGHT));
+  const offsetX = (minX + maxX) / 2;
+  const offsetY = (minY + maxY) / 2;
+
+  const nodes: Node<FlowNodeData>[] = rawNodes.map((node) => ({
+    ...node,
+    position: {
+      x: node.position.x - offsetX,
+      y: node.position.y - offsetY,
+    },
+  }));
 
   const edges: Edge[] = document.edges.map((edge) => ({
     ...edge,
@@ -136,23 +154,44 @@ const nodeTypes: NodeTypes = {
   flowCard: FlowCardNode,
 };
 
+function FlowViewportController({ flowKey }: { flowKey: string }) {
+  const initialized = useNodesInitialized();
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    if (!initialized) {
+      return;
+    }
+
+    void fitView({
+      padding: 0.12,
+      duration: 280,
+      minZoom: 0.82,
+      maxZoom: 1.35,
+    });
+  }, [fitView, flowKey, initialized]);
+
+  return null;
+}
+
 function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
   const { nodes, edges } = layoutElements(document);
-  const flowKey = `${nodes.map((node) => node.id).join("|")}::${edges
-    .map((edge) => edge.id)
+  const flowKey = `${nodes
+    .map((node) => `${node.id}:${node.data.label}`)
+    .join("|")}::${edges
+    .map((edge) => `${edge.id}:${edge.label ?? ""}`)
     .join("|")}`;
 
   return (
-    <div className="h-[720px] w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]">
+    <div className="h-[660px] w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]">
       <ReactFlow
-        key={flowKey}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
-        fitViewOptions={{ padding: 0.16, minZoom: 0.8 }}
-        minZoom={0.6}
-        maxZoom={1.4}
+        fitViewOptions={{ padding: 0.12, minZoom: 0.82, maxZoom: 1.35 }}
+        minZoom={0.7}
+        maxZoom={1.35}
         attributionPosition="bottom-left"
         proOptions={{ hideAttribution: true }}
         panOnScroll
@@ -165,9 +204,10 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
           markerEnd: { type: MarkerType.ArrowClosed },
         }}
       >
+        <FlowViewportController flowKey={flowKey} />
         <Background
           color="rgba(120, 105, 91, 0.16)"
-          gap={28}
+          gap={24}
           size={1.2}
           variant={BackgroundVariant.Dots}
         />

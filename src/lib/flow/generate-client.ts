@@ -28,30 +28,50 @@ type FlowGenerationResponse = z.infer<typeof flowDocumentResponseSchema> & {
   document: FlowSchemaDocument;
 };
 
-export async function requestFlowGeneration(processText: string) {
+async function requestFlow(payload: unknown) {
   const response = await fetch("/api/generate-flow", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      processText,
-    }),
+    body: JSON.stringify(payload),
   });
 
-  const payload = (await response.json()) as unknown;
+  const responsePayload = (await response.json()) as unknown;
 
   if (!response.ok) {
     const errorMessage =
-      typeof payload === "object" &&
-      payload !== null &&
-      "error" in payload &&
-      typeof payload.error === "string"
-        ? payload.error
+      typeof responsePayload === "object" &&
+      responsePayload !== null &&
+      "error" in responsePayload &&
+      typeof responsePayload.error === "string"
+        ? responsePayload.error
         : "Nao foi possivel gerar o fluxograma.";
 
     throw new Error(errorMessage);
   }
 
-  return flowDocumentResponseSchema.parse(payload) as FlowGenerationResponse;
+  return flowDocumentResponseSchema.parse(
+    responsePayload,
+  ) as FlowGenerationResponse;
+}
+
+export async function requestFlowGeneration(processText: string) {
+  return requestFlow({
+    mode: "generate",
+    processText,
+  });
+}
+
+export async function requestFlowRefinement(
+  processText: string,
+  currentDocument: FlowSchemaDocument,
+  instruction: string,
+) {
+  return requestFlow({
+    mode: "refine",
+    processText,
+    currentDocument,
+    instruction,
+  });
 }

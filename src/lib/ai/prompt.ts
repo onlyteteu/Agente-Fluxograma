@@ -27,3 +27,32 @@ export function buildFlowGenerationUserPrompt(processText: string) {
     processText,
   ].join("\n\n");
 }
+
+export function buildFlowRefinementInstructions() {
+  return [
+    buildFlowGenerationInstructions(),
+    "Voce tambem pode refinar um fluxograma existente.",
+    "Use o JSON atual como base e preserve ao maximo a estrutura valida anterior.",
+    "Altere apenas o necessario para cumprir a instrucao do usuario.",
+    "Reaproveite nodes, edges e ids existentes sempre que isso continuar coerente.",
+    "Se precisar adicionar uma etapa, insira a menor mudanca estrutural possivel.",
+    "Nao reescreva o fluxo inteiro sem necessidade.",
+  ].join(" ");
+}
+
+export function buildFlowRefinementUserPrompt(
+  processText: string,
+  currentDocumentJson: string,
+  instruction: string,
+) {
+  return [
+    "Refine o fluxograma abaixo com base na instrucao do usuario.",
+    "Preserve o maximo possivel da estrutura atual.",
+    "Texto original do processo:",
+    processText || "Nao informado.",
+    "Fluxograma atual em JSON:",
+    currentDocumentJson,
+    "Instrucao de refinamento:",
+    instruction,
+  ].join("\n\n");
+}

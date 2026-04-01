@@ -8,11 +8,17 @@ import {
   useState,
 } from "react";
 import { sampleFlowDocumentJson } from "@/lib/flow/example";
-import { FlowDocumentParseError } from "@/lib/flow/parser";
-import { resolveNormalizedFlowDocumentFromJson } from "@/lib/flow/resolve";
+import { normalizeFlowDocument } from "@/lib/flow/normalize";
+import { FlowDocumentParseError, parseFlowDocumentJson } from "@/lib/flow/parser";
 import { stringifyFlowDocument } from "@/lib/flow/simulate";
-import { requestFlowGeneration } from "@/lib/flow/generate-client";
-import type { NormalizedFlowDocument } from "@/lib/flow/types";
+import {
+  requestFlowGeneration,
+  requestFlowRefinement,
+} from "@/lib/flow/generate-client";
+import type {
+  FlowSchemaDocument,
+  NormalizedFlowDocument,
+} from "@/lib/flow/types";
 import { FlowPreview } from "./flow-preview";
 
 type ValidationState = {
@@ -31,6 +37,8 @@ type GenerationState = {
 };
 
 const exampleProcessPrompt = `Quando um novo cliente chega, a equipe comercial registra o pedido, o financeiro valida pagamento, e o projeto so segue para onboarding se tudo estiver aprovado. Se faltar algum dado, o cliente recebe uma solicitacao de ajuste antes de continuar.`;
+const exampleRefinementPrompt =
+  "Inclua uma etapa de validacao antes da confirmacao.";
 
 const promptSuggestions = [
   "Comece pelo gatilho inicial do processo.",
@@ -39,15 +47,23 @@ const promptSuggestions = [
   "Inclua excecoes ou retornos quando existirem.",
 ];
 
-function buildInitialDocument() {
-  return resolveNormalizedFlowDocumentFromJson(sampleFlowDocumentJson);
+const refinementSuggestions = [
+  "Adicione aprovacao do gerente antes do pagamento.",
+  "Troque o cancelamento por solicitacao de ajuste.",
+  "Inclua uma etapa de validacao antes da confirmacao.",
+];
+
+function buildInitialSchemaDocument() {
+  return parseFlowDocumentJson(sampleFlowDocumentJson);
 }
 
-const initialDocument = buildInitialDocument();
+const initialSchemaDocument = buildInitialSchemaDocument();
+const initialDocument = normalizeFlowDocument(initialSchemaDocument);
 
 export function FlowWorkbench() {
   const [source, setSource] = useState(sampleFlowDocumentJson);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
+  const [refinementText, setRefinementText] = useState(exampleRefinementPrompt);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationState, setGenerationState] = useState<GenerationState>({
     status: "idle",
@@ -56,6 +72,8 @@ export function FlowWorkbench() {
   });
   const [document, setDocument] =
     useState<NormalizedFlowDocument>(initialDocument);
+  const [schemaDocument, setSchemaDocument] =
+    useState<FlowSchemaDocument>(initialSchemaDocument);
   const [hasGeneratedFlow, setHasGeneratedFlow] = useState(false);
   const lastValidCountsRef = useRef({
     nodeCount: initialDocument.nodes.length,
@@ -73,12 +91,14 @@ export function FlowWorkbench() {
   useEffect(() => {
     startTransition(() => {
       try {
-        const nextDocument = resolveNormalizedFlowDocumentFromJson(deferredSource);
+        const nextSchemaDocument = parseFlowDocumentJson(deferredSource);
+        const nextDocument = normalizeFlowDocument(nextSchemaDocument);
         const nextCounts = {
           nodeCount: nextDocument.nodes.length,
           edgeCount: nextDocument.edges.length,
         };
 
+        setSchemaDocument(nextSchemaDocument);
         setDocument(nextDocument);
         lastValidCountsRef.current = nextCounts;
         setValidation({
@@ -136,6 +156,7 @@ export function FlowWorkbench() {
         nodeCount: initialDocument.nodes.length,
         edgeCount: initialDocument.edges.length,
       });
+      setSchemaDocument(initialSchemaDocument);
       setHasGeneratedFlow(false);
       setGenerationState({
         status: "idle",
@@ -181,6 +202,54 @@ export function FlowWorkbench() {
         setGenerationState({
           status: "error",
           title: "Nao foi possivel gerar agora",
+          detail: `${message} O ultimo resultado valido foi mantido no preview.`,
+        });
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  async function handleRefineFlow() {
+    setIsGenerating(true);
+    setGenerationState({
+      status: "loading",
+      title: "Refinando fluxograma",
+      detail:
+        "Aplicando sua instrucao sobre a estrutura atual sem perder o ultimo resultado valido.",
+    });
+
+    try {
+      const result = await requestFlowRefinement(
+        processText,
+        schemaDocument,
+        refinementText,
+      );
+      const nextSource = stringifyFlowDocument(result.document);
+
+      startTransition(() => {
+        setSource(nextSource);
+        setHasGeneratedFlow(true);
+        setGenerationState({
+          status: "success",
+          title:
+            result.source === "ai"
+              ? "Fluxograma refinado"
+              : "Refinamento aplicado com fallback",
+          detail: result.message,
+          source: result.source,
+        });
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Nao foi possivel refinar o fluxograma agora.";
+
+      startTransition(() => {
+        setGenerationState({
+          status: "error",
+          title: "Nao foi possivel refinar agora",
           detail: `${message} O ultimo resultado valido foi mantido no preview.`,
         });
       });
@@ -321,6 +390,70 @@ export function FlowWorkbench() {
                             : "bg-[#b7ab9a]"
                     }`}
                   />
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[1.75rem] border border-line bg-white/70 p-4 sm:p-5">
+                <div className="flex flex-col gap-3 border-b border-line/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted">
+                      Refinamento textual
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
+                      Ajuste um fluxo ja gerado sem recomecar do zero
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-muted">
+                      Use o fluxo atual como contexto para pedir mudancas
+                      pontuais, mantendo o maximo possivel da estrutura valida.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setRefinementText(exampleRefinementPrompt)}
+                    className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
+                  >
+                    Carregar instrucao exemplo
+                  </button>
+                </div>
+
+                <label
+                  htmlFor="refinement-text"
+                  className="mt-4 block font-mono text-xs uppercase tracking-[0.24em] text-muted"
+                >
+                  Instrucao de refinamento
+                </label>
+                <textarea
+                  id="refinement-text"
+                  value={refinementText}
+                  onChange={(event) => setRefinementText(event.target.value)}
+                  placeholder="Exemplo: adicione aprovacao do gerente antes do pagamento"
+                  className="mt-3 min-h-[132px] w-full resize-y rounded-[1.5rem] border border-line bg-[#fffdf8] p-4 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-[#8b8175] focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
+                />
+
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={handleRefineFlow}
+                    disabled={
+                      refinementText.trim().length === 0 ||
+                      validation.status !== "valid" ||
+                      isGenerating
+                    }
+                    className="rounded-full bg-[#1f7a63] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#17614e] disabled:cursor-not-allowed disabled:bg-[#84a99d]"
+                  >
+                    Refinar fluxo atual
+                  </button>
+                  {refinementSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setRefinementText(suggestion)}
+                      className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

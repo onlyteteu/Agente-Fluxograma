@@ -778,27 +778,6 @@ export function FlowWorkbench() {
         </aside>
 
         <section className="grid gap-6">
-          <article className="rounded-[2.25rem] border border-line bg-surface p-4 shadow-[var(--shadow)] sm:p-5">
-            <div className="mb-4 flex items-center justify-between gap-4">
-              <div>
-                <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
-                  Entrada JSON
-                </p>
-                <p className="mt-2 text-sm leading-6 text-muted">
-                  Esta camada tecnica continua disponivel para validar schema,
-                  inspecionar o JSON gerado e depurar a futura resposta da IA.
-                </p>
-              </div>
-            </div>
-
-            <textarea
-              value={source}
-              onChange={(event) => setSource(event.target.value)}
-              spellCheck={false}
-              className="min-h-[340px] w-full resize-y rounded-[1.75rem] border border-line bg-[#201d1a] p-5 font-mono text-[13px] leading-6 text-[#f6efe2] outline-none transition focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
-            />
-          </article>
-
           <section className="relative">
             <div className="absolute left-8 top-10 h-32 w-32 rounded-full bg-accent/15 blur-3xl" />
             <div className="absolute bottom-10 right-12 h-40 w-40 rounded-full bg-accent-strong/15 blur-3xl" />

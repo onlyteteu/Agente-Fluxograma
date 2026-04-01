@@ -27,6 +27,7 @@ import {
   loadPersistedWorkbenchState,
   savePersistedWorkbenchState,
 } from "@/lib/persistence/workbench-storage";
+import { getFlowLayoutMetrics } from "@/lib/flow/layout";
 import type {
   FlowSchemaDocument,
   NormalizedFlowDocument,
@@ -107,7 +108,9 @@ export function FlowWorkbench() {
   const [source, setSource] = useState(initialSource);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
   const [refinementText, setRefinementText] = useState(exampleRefinementPrompt);
+  const [isTechnicalVisible, setIsTechnicalVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPreviewMounted, setIsPreviewMounted] = useState(false);
   const [generationState, setGenerationState] = useState<GenerationState>({
     status: "idle",
     title: "Pronto para gerar",
@@ -130,6 +133,11 @@ export function FlowWorkbench() {
     buildValidationState(initialCounts),
   );
   const deferredSource = useDeferredValue(source);
+  const previewCanvasHeight = getFlowLayoutMetrics(document).canvasHeight;
+
+  useEffect(() => {
+    setIsPreviewMounted(true);
+  }, []);
 
   useEffect(() => {
     const persistedState = loadPersistedWorkbenchState();
@@ -345,6 +353,14 @@ export function FlowWorkbench() {
   }
 
   async function handleExportImage() {
+    if (!isPreviewMounted) {
+      setExportState({
+        status: "error",
+        message: "Aguarde o preview terminar de carregar antes de exportar.",
+      });
+      return;
+    }
+
     const exportRoot = window.document.getElementById(FLOW_PREVIEW_EXPORT_ID);
 
     if (!(exportRoot instanceof HTMLElement)) {
@@ -384,6 +400,9 @@ export function FlowWorkbench() {
   const generationTone =
     getToneByStatus(generationState.status);
   const exportTone = getToneByStatus(exportState.status);
+  const technicalToggleLabel = isTechnicalVisible
+    ? "Ocultar estrutura tecnica"
+    : "Ver estrutura tecnica";
 
   return (
     <div className="grid gap-8">
@@ -398,9 +417,9 @@ export function FlowWorkbench() {
                 Descreva o processo em linguagem natural
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
-                Esta area prepara a experiencia conversacional do produto. O
-                proximo passo sera conectar esse texto a uma chamada de IA que
-                devolve o JSON do fluxograma.
+                Esta e a camada principal da experiencia. O texto vira fluxo,
+                pode ser refinado em linguagem natural e a estrutura tecnica
+                fica disponivel apenas quando voce quiser inspecionar.
               </p>
             </div>
 
@@ -413,7 +432,11 @@ export function FlowWorkbench() {
             </button>
           </div>
 
-          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_250px]">
+          <div
+            className={`mt-5 grid gap-5 ${
+              isTechnicalVisible ? "lg:grid-cols-[minmax(0,1fr)_250px]" : ""
+            }`}
+          >
             <div>
               <label
                 htmlFor="process-text"
@@ -576,54 +599,56 @@ export function FlowWorkbench() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <article className="rounded-[1.75rem] border border-line bg-[#1f1c18] p-5 text-white">
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-white/60">
-                  Futuro payload
-                </p>
-                <p className="mt-3 text-sm leading-6 text-white/78">
-                  A IA vai receber este texto, instrucoes de estilo e a regra de
-                  saida no schema de nodes e edges.
-                </p>
-                <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/6 p-4 font-mono text-[12px] leading-6 text-white/82">
-                  <div>{`input: "${processText.slice(0, 84)}${processText.length > 84 ? "..." : ""}"`}</div>
-                  <div>output: flow-schema validado</div>
-                  <div>mode: model-or-fallback</div>
-                </div>
-              </article>
-
-              <article className="rounded-[1.75rem] border border-line bg-surface-strong p-5">
-                <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted">
-                  Preparacao
-                </p>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <div className="rounded-[1.25rem] border border-line bg-white/80 p-4">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                      Caracteres
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold">
-                      {processText.trim().length}
-                    </p>
+            {isTechnicalVisible ? (
+              <div className="space-y-4">
+                <article className="rounded-[1.75rem] border border-line bg-[#1f1c18] p-5 text-white">
+                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-white/60">
+                    Futuro payload
+                  </p>
+                  <p className="mt-3 text-sm leading-6 text-white/78">
+                    A IA vai receber este texto, instrucoes de estilo e a regra de
+                    saida no schema de nodes e edges.
+                  </p>
+                  <div className="mt-4 rounded-[1.25rem] border border-white/10 bg-white/6 p-4 font-mono text-[12px] leading-6 text-white/82">
+                    <div>{`input: "${processText.slice(0, 84)}${processText.length > 84 ? "..." : ""}"`}</div>
+                    <div>output: flow-schema validado</div>
+                    <div>mode: model-or-fallback</div>
                   </div>
-                  <div className="rounded-[1.25rem] border border-line bg-white/80 p-4">
-                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                      Linhas
-                    </p>
-                    <p className="mt-2 text-2xl font-semibold">
-                      {processText
-                        .split("\n")
-                        .filter((line) => line.trim().length > 0).length || 1}
-                    </p>
-                  </div>
-                </div>
+                </article>
 
-                <div className="mt-4 rounded-[1.25rem] border border-dashed border-line bg-white/40 p-4 text-sm leading-6 text-muted">
-                  O botao agora usa a camada real de geracao. Se a IA nao estiver
-                  configurada ou falhar durante o desenvolvimento, o fallback
-                  local pode assumir sem mudar a interface.
-                </div>
-              </article>
-            </div>
+                <article className="rounded-[1.75rem] border border-line bg-surface-strong p-5">
+                  <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted">
+                    Preparacao
+                  </p>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-[1.25rem] border border-line bg-white/80 p-4">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                        Caracteres
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {processText.trim().length}
+                      </p>
+                    </div>
+                    <div className="rounded-[1.25rem] border border-line bg-white/80 p-4">
+                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                        Linhas
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold">
+                        {processText
+                          .split("\n")
+                          .filter((line) => line.trim().length > 0).length || 1}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-[1.25rem] border border-dashed border-line bg-white/40 p-4 text-sm leading-6 text-muted">
+                    O botao agora usa a camada real de geracao. Se a IA nao estiver
+                    configurada ou falhar durante o desenvolvimento, o fallback
+                    local pode assumir sem mudar a interface.
+                  </div>
+                </article>
+              </div>
+            ) : null}
           </div>
         </article>
 
@@ -793,8 +818,23 @@ export function FlowWorkbench() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
+                    onClick={() => setIsTechnicalVisible((current) => !current)}
+                    className={`rounded-full border px-5 py-3 text-sm font-medium transition ${
+                      isTechnicalVisible
+                        ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.92)] text-[#1d5f4f] hover:border-[#1f7a63]"
+                        : "border-line bg-white/72 text-muted hover:border-accent hover:bg-white hover:text-foreground"
+                    }`}
+                  >
+                    {technicalToggleLabel}
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleExportImage}
-                    disabled={isGenerating || exportState.status === "loading"}
+                    disabled={
+                      isGenerating ||
+                      exportState.status === "loading" ||
+                      !isPreviewMounted
+                    }
                     className="rounded-full border border-line bg-white/85 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {exportState.status === "loading"
@@ -803,6 +843,27 @@ export function FlowWorkbench() {
                   </button>
                 </div>
               </div>
+
+              {!isTechnicalVisible ? (
+                <div className="mb-4 flex flex-col gap-3 rounded-[1.5rem] border border-line/80 bg-white/72 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                      Estrutura tecnica opcional
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-muted">
+                      O modo tecnico fica recolhido para manter a interface focada em
+                      escrever, refinar, visualizar e exportar.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsTechnicalVisible(true)}
+                    className="rounded-full border border-line bg-white/85 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
+                  >
+                    Ver estrutura tecnica
+                  </button>
+                </div>
+              ) : null}
 
               <div
                 className={`mb-4 rounded-[1.25rem] border p-4 transition ${exportTone}`}
@@ -833,11 +894,143 @@ export function FlowWorkbench() {
                 </div>
               ) : null}
 
-              <FlowPreview document={document} />
+              {isPreviewMounted ? (
+                <FlowPreview document={document} />
+              ) : (
+                <div
+                  id={FLOW_PREVIEW_EXPORT_ID}
+                  className="flex w-full items-center justify-center overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
+                  style={{ height: previewCanvasHeight }}
+                >
+                  <div className="rounded-full border border-line bg-white/88 px-4 py-2 text-sm text-muted shadow-[0_18px_40px_rgba(38,32,24,0.08)]">
+                    Montando preview do fluxograma...
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </section>
       </div>
+
+      {isTechnicalVisible ? (
+        <div className="grid gap-8 xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
+          <aside className="space-y-4 xl:sticky xl:top-8">
+            <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                    Fonte
+                  </p>
+                  <h2 className="mt-4 text-2xl font-semibold tracking-tight">
+                    JSON dirigido por schema
+                  </h2>
+                </div>
+                <span className="rounded-full border border-line bg-white/80 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+                  Tecnico
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                O diagrama nasce do JSON do projeto. Aqui voce pode validar schema,
+                inspecionar estrutura e depurar a camada de geracao sem competir com
+                a experiencia principal.
+              </p>
+            </article>
+
+            <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                    Estado
+                  </p>
+                  <p className="mt-3 text-base font-semibold">
+                    {validation.status === "valid"
+                      ? "Estrutura valida"
+                      : "Aguardando correcao"}
+                  </p>
+                </div>
+                <div
+                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${
+                    validation.status === "valid"
+                      ? "bg-[#e4f5ef] text-[#1f7a63]"
+                      : "bg-[#fbe7dc] text-[#b4552a]"
+                  }`}
+                >
+                  {validation.status === "valid" ? "OK" : "Erro"}
+                </div>
+              </div>
+
+              <p className="mt-4 text-sm leading-6 text-muted">
+                {validation.message}
+              </p>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-[1.25rem] border border-line bg-white/70 p-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                    Nodes
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {validation.nodeCount}
+                  </p>
+                </div>
+                <div className="rounded-[1.25rem] border border-line bg-white/70 p-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                    Edges
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold">
+                    {validation.edgeCount}
+                  </p>
+                </div>
+              </div>
+
+              {validation.issues.length > 0 ? (
+                <div className="mt-5 rounded-[1.5rem] border border-[rgba(201,111,59,0.2)] bg-[#fff6ef] p-4">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-[#b4552a]">
+                    Issues
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm leading-6 text-[#6e4630]">
+                    {validation.issues.map((issue) => (
+                      <li key={issue}>{issue}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </article>
+
+            <article className="rounded-[2rem] border border-line bg-[#1f1c18] p-5 text-white shadow-[var(--shadow)]">
+              <p className="font-mono text-xs uppercase tracking-[0.26em] text-white/60">
+                Formato esperado
+              </p>
+              <p className="mt-4 text-sm leading-6 text-white/78">
+                Cada node precisa de `id`, `type` e `label`. Cada edge precisa de
+                `source`, `target` e pode ter `label`.
+              </p>
+            </article>
+          </aside>
+
+          <section className="grid gap-6">
+            <article className="rounded-[2.25rem] border border-line bg-surface p-4 shadow-[var(--shadow)] sm:p-5">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
+                    Entrada JSON
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-muted">
+                    Esta camada tecnica continua disponivel para validar schema,
+                    inspecionar o JSON gerado e depurar a futura resposta da IA.
+                  </p>
+                </div>
+              </div>
+
+              <textarea
+                value={source}
+                onChange={(event) => setSource(event.target.value)}
+                spellCheck={false}
+                className="min-h-[340px] w-full resize-y rounded-[1.75rem] border border-line bg-[#201d1a] p-5 font-mono text-[13px] leading-6 text-[#f6efe2] outline-none transition focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
+              />
+            </article>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

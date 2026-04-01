@@ -10,12 +10,12 @@ export default function Home() {
               FlowTalk
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-[-0.05em] text-balance sm:text-5xl lg:text-6xl">
-              Fluxograma dinamico a partir de JSON, com o mesmo cuidado visual.
+              Entrada em texto primeiro. JSON e diagrama como camada viva logo depois.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted sm:text-lg">
-              A interface agora interpreta o formato de dados do projeto e
-              renderiza o diagrama a partir dele, com validacao clara entre
-              entrada, schema e apresentacao.
+              A experiencia agora comeca pela descricao do processo em linguagem
+              natural, mas preserva a trilha tecnica de schema, validacao e
+              renderizacao visual para a futura integracao com IA.
             </p>
           </div>
 
@@ -25,6 +25,9 @@ export default function Home() {
             </div>
             <div className="rounded-full border border-line bg-surface px-4 py-2 text-sm text-muted shadow-[var(--shadow)]">
               Dagre auto-layout
+            </div>
+            <div className="rounded-full border border-line bg-surface px-4 py-2 text-sm text-muted shadow-[var(--shadow)]">
+              Entrada textual
             </div>
             <div className="rounded-full border border-line bg-surface px-4 py-2 text-sm text-muted shadow-[var(--shadow)]">
               JSON validado

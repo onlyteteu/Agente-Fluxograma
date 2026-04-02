@@ -212,7 +212,7 @@ function FlowCanvas({
 }) {
   const { nodes, metrics } = layoutFlowDocument(document);
   const edges: Edge[] = buildRenderableEdges(document);
-  const canvasHeight = metrics.canvasHeight + (presentationMode ? 110 : 0);
+  const canvasHeight = metrics.canvasHeight + (presentationMode ? 110 : 24);
   const flowKey = `${nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.type}`)
     .join("|")}::${edges
@@ -222,7 +222,7 @@ function FlowCanvas({
   return (
     <div
       id={FLOW_PREVIEW_EXPORT_ID}
-      className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
+      className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.9),rgba(252,246,237,0.96))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
       style={{ height: canvasHeight }}
     >
       <ReactFlow

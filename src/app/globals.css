@@ -85,3 +85,55 @@ a {
   mix-blend-mode: multiply;
   opacity: 0.7;
 }
+
+@keyframes flowtalkBreath {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.88;
+  }
+
+  50% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+}
+
+@keyframes flowtalkShimmer {
+  0% {
+    transform: translateX(-140%);
+  }
+
+  100% {
+    transform: translateX(160%);
+  }
+}
+
+.flowtalk-breath {
+  animation: flowtalkBreath 1.9s ease-in-out infinite;
+}
+
+.flowtalk-panel-lift {
+  will-change: transform, opacity;
+}
+
+.flowtalk-loading-sheen {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.flowtalk-loading-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.32),
+    transparent
+  );
+  transform: translateX(-140%);
+  animation: flowtalkShimmer 2.3s ease-in-out infinite;
+  pointer-events: none;
+}

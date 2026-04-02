@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  describeFlowModelError,
   isFlowModelConfigured,
   requestStructuredFlowDocument,
 } from "./model-client";
@@ -70,6 +71,10 @@ type RunFlowOperationOptions = {
   inputIsEmpty: boolean;
 };
 
+function appendFallbackReason(baseMessage: string, reason: string) {
+  return `${baseMessage} Motivo: ${reason}`;
+}
+
 async function runFlowOperation(
   options: RunFlowOperationOptions,
 ): Promise<FlowGenerationResult> {
@@ -101,10 +106,17 @@ async function runFlowOperation(
       source: "ai",
     };
   } catch (error) {
+    console.error("[flowtalk] AI flow operation failed", error);
+
     if (fallbackEnabled) {
+      const fallbackReason =
+        error instanceof FlowDocumentParseError
+          ? "A resposta da IA nao passou na validacao do schema."
+          : describeFlowModelError(error);
+
       return {
         document: options.fallback(),
-        message: options.fallbackMessage,
+        message: appendFallbackReason(options.fallbackMessage, fallbackReason),
         source: "simulator",
       };
     }

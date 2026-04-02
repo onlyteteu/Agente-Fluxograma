@@ -24,10 +24,10 @@ export const flowNodeDimensions: Record<
   NormalizedFlowNode["type"],
   NodeDimension
 > = {
-  start: { width: 136, height: 136 },
-  task: { width: 312, height: 130 },
-  gateway: { width: 188, height: 188 },
-  end: { width: 142, height: 142 },
+  start: { width: 146, height: 146 },
+  task: { width: 336, height: 144 },
+  gateway: { width: 204, height: 204 },
+  end: { width: 150, height: 150 },
 };
 
 type LayoutNode = Node<NormalizedFlowNode>;
@@ -47,12 +47,12 @@ export function getFlowLayoutMetrics(
   const mediumFlow = nodeCount <= 6;
 
   return {
-    ranksep: compactFlow ? 68 : mediumFlow ? 76 : 84,
-    nodesep: compactFlow ? 28 : 36,
-    fitPadding: compactFlow ? 0.09 : mediumFlow ? 0.105 : 0.12,
-    minZoom: compactFlow ? 0.86 : 0.8,
-    maxZoom: 1.28,
-    canvasHeight: compactFlow ? 540 : mediumFlow ? 600 : 660,
+    ranksep: compactFlow ? 78 : mediumFlow ? 88 : 96,
+    nodesep: compactFlow ? 34 : 42,
+    fitPadding: compactFlow ? 0.08 : mediumFlow ? 0.095 : 0.11,
+    minZoom: compactFlow ? 0.84 : 0.78,
+    maxZoom: 1.34,
+    canvasHeight: compactFlow ? 620 : mediumFlow ? 700 : 780,
   };
 }
 

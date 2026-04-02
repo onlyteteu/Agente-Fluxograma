@@ -34,6 +34,13 @@ const fillerWords = new Set([
   "entao",
   "então",
 ]);
+const removableTailPatterns = [
+  /\s+(?:antes|depois)\s+de\s+.+$/i,
+  /\s+(?:para|pra)\s+.+$/i,
+  /\s+(?:com|sem)\s+.+$/i,
+  /\s+(?:quando|caso)\s+.+$/i,
+  /\s+(?:se|caso)\s+.+$/i,
+];
 
 function normalizeWhitespace(input: string) {
   return input.replace(/\s+/g, " ").trim();
@@ -72,6 +79,39 @@ function compactWords(input: string, maxWords: number) {
   return words.slice(0, maxWords).join(" ");
 }
 
+function removeTrailingDetail(input: string) {
+  let result = sentenceCase(input);
+
+  for (const pattern of removableTailPatterns) {
+    const shortened = result.replace(pattern, "");
+
+    if (shortened.trim() && shortened.trim() !== result.trim()) {
+      result = sentenceCase(shortened);
+      break;
+    }
+  }
+
+  return normalizeWhitespace(result);
+}
+
+function compressLabelWords(input: string, maxWords: number) {
+  const words = normalizeWhitespace(input).split(" ").filter(Boolean);
+
+  if (words.length <= maxWords) {
+    return words.join(" ");
+  }
+
+  const prioritized = words.filter(
+    (word) => !fillerWords.has(normalizeText(word)),
+  );
+
+  if (prioritized.length >= 3) {
+    return prioritized.slice(0, maxWords).join(" ");
+  }
+
+  return words.slice(0, maxWords).join(" ");
+}
+
 function shortenLabel(input: string, maxLength = 36) {
   const trimmed = sentenceCase(input);
 
@@ -79,13 +119,33 @@ function shortenLabel(input: string, maxLength = 36) {
     return trimmed;
   }
 
-  const shortenedByWords = compactWords(trimmed, 5);
+  const withoutTail = removeTrailingDetail(trimmed);
+
+  if (withoutTail.length <= maxLength) {
+    return withoutTail;
+  }
+
+  const shortenedByWords = compactWords(withoutTail, 5);
 
   if (shortenedByWords.length <= maxLength) {
     return shortenedByWords;
   }
 
-  return `${trimmed.slice(0, maxLength - 3).trimEnd()}...`;
+  const compressed = compressLabelWords(withoutTail, 4);
+
+  if (compressed.length <= maxLength) {
+    return sentenceCase(compressed);
+  }
+
+  return sentenceCase(
+    compressLabelWords(
+      withoutTail
+        .split(" ")
+        .map((word) => word.replace(/[.,;:!?]+$/g, ""))
+        .join(" "),
+      3,
+    ).slice(0, maxLength).trim(),
+  );
 }
 
 function cleanActionPhrase(input: string) {
@@ -283,7 +343,9 @@ function extractConditionPhrase(segment: string) {
 }
 
 function buildGatewayLabel(segment: string, contextSegments: string[] = []) {
-  return toQuestionLabel(`${contextSegments.join(" ")} ${extractConditionPhrase(segment)}`);
+  return toQuestionLabel(
+    `${contextSegments.join(" ")} ${extractConditionPhrase(segment)}`,
+  );
 }
 
 function buildFallbackLabel(segment?: string) {
@@ -356,7 +418,7 @@ function createNodeFactory() {
 
   return (type: FlowNodeType, label: string) => {
     const finalLabel =
-      type === "gateway" ? toQuestionLabel(label) : shortenLabel(label, 34);
+      type === "gateway" ? toQuestionLabel(label) : shortenLabel(label, 38);
     const baseId = slugify(finalLabel) || type;
     const currentCount = usedIds.get(baseId) ?? 0;
     usedIds.set(baseId, currentCount + 1);

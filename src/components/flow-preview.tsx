@@ -102,16 +102,16 @@ function BaseHandles({ tone }: { tone: "start" | "task" | "gateway" | "end" }) {
 
 function StartNode({ data }: { data: FlowNodeData }) {
   return (
-    <div className="relative flex h-[136px] w-[136px] items-center justify-center">
+    <div className="relative flex h-[146px] w-[146px] items-center justify-center">
       <BaseHandles tone="start" />
       <div
         className={`flex h-full w-full items-center justify-center rounded-full border-2 shadow-[0_24px_60px_rgba(46,35,23,0.16)] ${eventPalette.start}`}
       >
-        <div className="flex h-[104px] w-[104px] flex-col items-center justify-center rounded-full border border-white/60 bg-white/45 text-center backdrop-blur-sm">
+        <div className="flex h-[112px] w-[112px] flex-col items-center justify-center rounded-full border border-white/60 bg-white/45 px-3 text-center backdrop-blur-sm">
           <p className="font-mono text-[10px] uppercase tracking-[0.28em] opacity-65">
             Inicio
           </p>
-          <p className="mt-2 max-w-[72px] text-[15px] leading-5 font-semibold tracking-[-0.03em]">
+          <p className="mt-2 max-w-[82px] text-[15px] leading-[1.2] font-semibold tracking-[-0.03em] text-balance">
             {data.label}
           </p>
         </div>
@@ -122,16 +122,16 @@ function StartNode({ data }: { data: FlowNodeData }) {
 
 function EndNode({ data }: { data: FlowNodeData }) {
   return (
-    <div className="relative flex h-[142px] w-[142px] items-center justify-center">
+    <div className="relative flex h-[150px] w-[150px] items-center justify-center">
       <BaseHandles tone="end" />
       <div
         className={`flex h-full w-full items-center justify-center rounded-full border-[4px] shadow-[0_28px_60px_rgba(20,16,12,0.22)] ${eventPalette.end}`}
       >
-        <div className="flex h-[104px] w-[104px] flex-col items-center justify-center rounded-full border border-white/12 bg-black/10 text-center backdrop-blur-sm">
+        <div className="flex h-[112px] w-[112px] flex-col items-center justify-center rounded-full border border-white/12 bg-black/10 px-3 text-center backdrop-blur-sm">
           <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/58">
             Fim
           </p>
-          <p className="mt-2 max-w-[76px] text-[15px] leading-5 font-semibold tracking-[-0.03em] text-white">
+          <p className="mt-2 max-w-[84px] text-[15px] leading-[1.2] font-semibold tracking-[-0.03em] text-balance text-white">
             {data.label}
           </p>
         </div>
@@ -143,21 +143,23 @@ function EndNode({ data }: { data: FlowNodeData }) {
 function TaskNode({ data }: { data: FlowNodeData }) {
   return (
     <div
-      className={`relative w-[312px] rounded-[30px] border p-5 shadow-[0_24px_60px_rgba(46,35,23,0.14)] backdrop-blur ${taskPalette[data.tone]}`}
+      className={`relative min-h-[144px] w-[336px] rounded-[30px] border p-5 shadow-[0_24px_60px_rgba(46,35,23,0.14)] backdrop-blur ${taskPalette[data.tone]}`}
     >
       <BaseHandles tone="task" />
       <div className="pointer-events-none absolute left-4 top-4 h-10 w-10 rounded-xl border border-current/10 bg-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]" />
       <div className="pointer-events-none absolute left-[22px] top-[24px] h-3 w-4 rounded-sm border border-current/35" />
       <div className="pointer-events-none absolute left-[22px] top-[31px] h-px w-12 bg-current/18" />
 
-      <div className="ml-14 pr-2">
+      <div className="ml-14 pr-3">
         <p className="font-mono text-[11px] uppercase tracking-[0.28em] opacity-65">
           {data.eyebrow}
         </p>
-        <h3 className="mt-3 text-[20px] leading-6 font-semibold tracking-[-0.04em] text-balance">
+        <h3 className="mt-3 max-w-[236px] break-words text-[20px] leading-[1.24] font-semibold tracking-[-0.04em] text-balance">
           {data.label}
         </h3>
-        <p className="mt-3 text-[13px] leading-5 opacity-72">{data.description}</p>
+        <p className="mt-3 max-w-[228px] text-[13px] leading-[1.45] opacity-72">
+          {data.description}
+        </p>
       </div>
     </div>
   );
@@ -165,15 +167,15 @@ function TaskNode({ data }: { data: FlowNodeData }) {
 
 function GatewayNode({ data }: { data: FlowNodeData }) {
   return (
-    <div className="relative flex h-[188px] w-[188px] items-center justify-center">
+    <div className="relative flex h-[204px] w-[204px] items-center justify-center">
       <BaseHandles tone="gateway" />
-      <div className="absolute h-[146px] w-[146px] rotate-45 rounded-[28px] border border-[rgba(31,122,99,0.28)] bg-[linear-gradient(180deg,rgba(244,252,248,0.98),rgba(255,255,255,0.92))] shadow-[0_24px_60px_rgba(24,77,63,0.14)]" />
-      <div className="absolute h-[106px] w-[106px] rotate-45 rounded-[20px] border border-[rgba(31,122,99,0.12)] bg-white/72 backdrop-blur-sm" />
-      <div className="relative z-10 flex max-w-[116px] flex-col items-center text-center text-[#17352d]">
+      <div className="absolute h-[158px] w-[158px] rotate-45 rounded-[30px] border border-[rgba(31,122,99,0.28)] bg-[linear-gradient(180deg,rgba(244,252,248,0.98),rgba(255,255,255,0.92))] shadow-[0_24px_60px_rgba(24,77,63,0.14)]" />
+      <div className="absolute h-[116px] w-[116px] rotate-45 rounded-[22px] border border-[rgba(31,122,99,0.12)] bg-white/72 backdrop-blur-sm" />
+      <div className="relative z-10 flex max-w-[126px] flex-col items-center text-center text-[#17352d]">
         <p className="font-mono text-[10px] uppercase tracking-[0.28em] opacity-65">
           Decisao
         </p>
-        <p className="mt-3 text-[16px] leading-5 font-semibold tracking-[-0.04em] text-balance">
+        <p className="mt-3 break-words text-[16px] leading-[1.22] font-semibold tracking-[-0.04em] text-balance">
           {data.label}
         </p>
       </div>

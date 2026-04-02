@@ -3,7 +3,7 @@ import { FlowWorkbench } from "@/components/flow-workbench";
 export default function Home() {
   return (
     <main className="grain min-h-screen overflow-hidden">
-      <section className="mx-auto flex w-full max-w-[1500px] flex-col px-5 py-6 sm:px-8 lg:px-10">
+      <section className="mx-auto flex w-full max-w-[1680px] flex-col px-5 py-6 sm:px-8 lg:px-10">
         <header className="flex flex-col gap-6 border-b border-line pb-7 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="font-mono text-xs uppercase tracking-[0.32em] text-muted">

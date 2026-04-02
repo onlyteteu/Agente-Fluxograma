@@ -33,9 +33,12 @@ export function buildFlowRefinementInstructions() {
     buildFlowGenerationInstructions(),
     "Voce tambem pode refinar um fluxograma existente.",
     "Use o JSON atual como base e preserve ao maximo a estrutura valida anterior.",
+    "Considere o fluxograma atual como contexto prioritario para a nova resposta.",
     "Altere apenas o necessario para cumprir a instrucao do usuario.",
-    "Reaproveite nodes, edges e ids existentes sempre que isso continuar coerente.",
+    "Reaproveite nodes, edges, ordem e ids existentes sempre que isso continuar coerente.",
     "Se precisar adicionar uma etapa, insira a menor mudanca estrutural possivel.",
+    "Preserve conexoes que continuam validas e evite reconstruir ramos inteiros sem necessidade.",
+    "So reestruture grandes partes do fluxo se a instrucao realmente exigir isso.",
     "Nao reescreva o fluxo inteiro sem necessidade.",
   ].join(" ");
 }
@@ -48,6 +51,7 @@ export function buildFlowRefinementUserPrompt(
   return [
     "Refine o fluxograma abaixo com base na instrucao do usuario.",
     "Preserve o maximo possivel da estrutura atual.",
+    "Use o fluxo atual como contexto principal e devolva a nova versao completa do JSON.",
     "Texto original do processo:",
     processText || "Nao informado.",
     "Fluxograma atual em JSON:",

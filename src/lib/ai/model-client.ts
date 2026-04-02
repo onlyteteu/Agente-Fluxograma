@@ -6,6 +6,12 @@ import { aiFlowDocumentSchema, sanitizeAiFlowDocument } from "./flow-output";
 
 let cachedClient: OpenAI | null | undefined;
 
+type FlowModelErrorDetails = {
+  status?: number;
+  code?: string;
+  message?: string;
+};
+
 function getApiKey() {
   return process.env.OPENAI_API_KEY?.trim();
 }
@@ -27,6 +33,65 @@ function getOpenAIClient() {
   cachedClient = apiKey ? new OpenAI({ apiKey }) : null;
 
   return cachedClient;
+}
+
+function getFlowModelErrorDetails(error: unknown): FlowModelErrorDetails {
+  if (!(error instanceof Error)) {
+    return {};
+  }
+
+  const details = error as Error & {
+    status?: number;
+    code?: unknown;
+  };
+
+  return {
+    status: typeof details.status === "number" ? details.status : undefined,
+    code: typeof details.code === "string" ? details.code : undefined,
+    message: error.message,
+  };
+}
+
+export function describeFlowModelError(error: unknown) {
+  const details = getFlowModelErrorDetails(error);
+  const normalizedCode = details.code?.toLowerCase();
+  const normalizedMessage = details.message?.toLowerCase() ?? "";
+
+  if (
+    normalizedCode === "insufficient_quota" ||
+    details.status === 429 ||
+    normalizedMessage.includes("quota")
+  ) {
+    return "A conta da OpenAI atingiu o limite de uso ou de faturamento.";
+  }
+
+  if (
+    normalizedCode === "invalid_api_key" ||
+    details.status === 401 ||
+    normalizedMessage.includes("api key")
+  ) {
+    return "A chave da OpenAI parece invalida ou sem permissao para este projeto.";
+  }
+
+  if (details.status === 403) {
+    return "A chave da OpenAI nao tem permissao para usar este recurso.";
+  }
+
+  if (
+    normalizedMessage.includes("fetch failed") ||
+    normalizedMessage.includes("network") ||
+    normalizedMessage.includes("timed out") ||
+    normalizedMessage.includes("econn") ||
+    normalizedMessage.includes("enotfound")
+  ) {
+    return "Nao foi possivel conectar ao servico da OpenAI.";
+  }
+
+  if (details.status && details.status >= 500) {
+    return "A OpenAI respondeu com uma falha temporaria.";
+  }
+
+  return "A IA nao ficou disponivel neste momento.";
 }
 
 export async function requestStructuredFlowDocument(

@@ -121,7 +121,13 @@ function getGenerationEyebrow(status: GenerationState["status"]) {
   return "Estado";
 }
 
-export function FlowWorkbench() {
+type FlowWorkbenchProps = {
+  isPresentationMode?: boolean;
+};
+
+export function FlowWorkbench({
+  isPresentationMode = false,
+}: FlowWorkbenchProps) {
   const [source, setSource] = useState(initialSource);
   const [processText, setProcessText] = useState(exampleProcessPrompt);
   const [refinementText, setRefinementText] = useState(exampleRefinementPrompt);
@@ -151,12 +157,19 @@ export function FlowWorkbench() {
     buildValidationState(initialCounts),
   );
   const deferredSource = useDeferredValue(source);
-  const previewCanvasHeight = getFlowLayoutMetrics(document).canvasHeight;
+  const previewCanvasHeight =
+    getFlowLayoutMetrics(document).canvasHeight + (isPresentationMode ? 110 : 0);
 
   useEffect(() => {
     setIsTechnicalVisible(false);
     setIsPreviewMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isPresentationMode) {
+      setIsTechnicalVisible(false);
+    }
+  }, [isPresentationMode]);
 
   useEffect(() => {
     if (generationState.status !== "success") {
@@ -456,23 +469,43 @@ export function FlowWorkbench() {
   const refinementStatusDetail = hasGeneratedFlow
     ? "A proxima instrucao usa o diagrama atual como base e preserva a estrutura valida sempre que possivel."
     : "Primeiro gere um fluxo a partir do texto. Depois use instrucoes curtas para ajustar etapas, decisoes ou caminhos.";
+  const promptChips = isPresentationMode
+    ? promptSuggestions.slice(0, 2)
+    : promptSuggestions;
+  const refinementChips = isPresentationMode
+    ? refinementSuggestions.slice(0, 3)
+    : refinementSuggestions;
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.45fr)] xl:gap-8 2xl:grid-cols-[minmax(380px,0.76fr)_minmax(0,1.58fr)]">
+    <div
+      className={`grid gap-6 ${
+        isPresentationMode
+          ? "xl:grid-cols-[minmax(360px,0.74fr)_minmax(0,1.72fr)] xl:gap-6 2xl:grid-cols-[minmax(380px,0.7fr)_minmax(0,1.85fr)]"
+          : "xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.45fr)] xl:gap-8 2xl:grid-cols-[minmax(380px,0.76fr)_minmax(0,1.58fr)]"
+      }`}
+    >
       <section className="grid gap-4 xl:col-start-1 xl:row-start-1">
-        <article className="rounded-[2.35rem] border border-line bg-surface p-5 shadow-[var(--shadow)] sm:p-6 xl:sticky xl:top-8">
+        <article
+          className={`rounded-[2.35rem] border border-line p-5 shadow-[var(--shadow)] sm:p-6 xl:sticky xl:top-8 ${
+            isPresentationMode
+              ? "bg-[rgba(255,250,242,0.9)]"
+              : "bg-surface"
+          }`}
+        >
           <div className="flex flex-col gap-5 border-b border-line/80 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-2xl">
               <p className="font-mono text-xs uppercase tracking-[0.28em] text-muted">
-                Entrada principal
+                {isPresentationMode ? "Modo apresentacao" : "Entrada principal"}
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
-                Descreva o processo em linguagem natural
+                {isPresentationMode
+                  ? "Texto, refinamento e preview em primeiro plano"
+                  : "Descreva o processo em linguagem natural"}
               </h2>
               <p className="mt-3 text-sm leading-6 text-muted sm:text-base">
-                Esta e a camada principal da experiencia. O texto vira fluxo,
-                pode ser refinado em linguagem natural e a estrutura tecnica
-                fica disponivel apenas quando voce quiser inspecionar.
+                {isPresentationMode
+                  ? "Os paineis tecnicos e os apoios secundarios saem do caminho para a demo ficar mais limpa, com foco na evolucao do fluxo e no resultado visual."
+                  : "Esta e a camada principal da experiencia. O texto vira fluxo, pode ser refinado em linguagem natural e a estrutura tecnica fica disponivel apenas quando voce quiser inspecionar."}
               </p>
             </div>
 
@@ -530,7 +563,7 @@ export function FlowWorkbench() {
                 >
                   Limpar e recomecar
                 </button>
-                {promptSuggestions.map((suggestion) => (
+                {promptChips.map((suggestion) => (
                   <button
                     key={suggestion}
                     type="button"
@@ -548,23 +581,12 @@ export function FlowWorkbench() {
                 ))}
               </div>
 
-              <div
-                className={`flowtalk-panel-lift mt-4 overflow-hidden rounded-[1.35rem] border p-4 transition-all duration-300 ${generationTone}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                      {getGenerationEyebrow(generationState.status)}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-foreground">
-                      {generationState.title}
-                    </p>
-                    <p className="mt-2 text-sm leading-6 opacity-85">
-                      {generationState.detail}
-                    </p>
-                  </div>
+              {isPresentationMode ? (
+                <div
+                  className={`mt-4 flex flex-wrap items-center gap-3 rounded-[1.3rem] border px-4 py-3 transition-all duration-300 ${generationTone}`}
+                >
                   <div
-                    className={`mt-1 h-3 w-3 shrink-0 rounded-full transition-all duration-300 ${
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full transition-all duration-300 ${
                       generationState.status === "success"
                         ? "bg-[#1f7a63] shadow-[0_0_0_8px_rgba(31,122,99,0.08)]"
                         : generationState.status === "error"
@@ -574,22 +596,60 @@ export function FlowWorkbench() {
                             : "bg-[#b7ab9a]"
                     }`}
                   />
+                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                    {getGenerationEyebrow(generationState.status)}
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {generationState.title}
+                  </p>
+                  <p className="text-sm leading-6 opacity-85">
+                    {generationState.detail}
+                  </p>
                 </div>
-
-                <div className="mt-4 overflow-hidden rounded-full bg-white/45">
-                  <div
-                    className={`h-[3px] origin-left rounded-full transition-all duration-500 ${
-                      generationState.status === "loading"
-                        ? "flowtalk-loading-sheen w-2/3 bg-[linear-gradient(90deg,rgba(69,97,127,0.2),rgba(69,97,127,0.78),rgba(69,97,127,0.2))]"
-                        : generationState.status === "success"
-                          ? "w-full bg-[linear-gradient(90deg,rgba(31,122,99,0.35),rgba(31,122,99,0.9))]"
+              ) : (
+                <div
+                  className={`flowtalk-panel-lift mt-4 overflow-hidden rounded-[1.35rem] border p-4 transition-all duration-300 ${generationTone}`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                        {getGenerationEyebrow(generationState.status)}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-foreground">
+                        {generationState.title}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 opacity-85">
+                        {generationState.detail}
+                      </p>
+                    </div>
+                    <div
+                      className={`mt-1 h-3 w-3 shrink-0 rounded-full transition-all duration-300 ${
+                        generationState.status === "success"
+                          ? "bg-[#1f7a63] shadow-[0_0_0_8px_rgba(31,122,99,0.08)]"
                           : generationState.status === "error"
-                            ? "w-full bg-[linear-gradient(90deg,rgba(201,111,59,0.35),rgba(201,111,59,0.86))]"
-                            : "w-1/4 bg-[rgba(92,88,79,0.18)]"
-                    }`}
-                  />
+                            ? "bg-[#c96f3b] shadow-[0_0_0_8px_rgba(201,111,59,0.08)]"
+                            : generationState.status === "loading"
+                              ? "flowtalk-breath bg-[#45617f] shadow-[0_0_0_8px_rgba(69,97,127,0.08)]"
+                              : "bg-[#b7ab9a]"
+                      }`}
+                    />
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-full bg-white/45">
+                    <div
+                      className={`h-[3px] origin-left rounded-full transition-all duration-500 ${
+                        generationState.status === "loading"
+                          ? "flowtalk-loading-sheen w-2/3 bg-[linear-gradient(90deg,rgba(69,97,127,0.2),rgba(69,97,127,0.78),rgba(69,97,127,0.2))]"
+                          : generationState.status === "success"
+                            ? "w-full bg-[linear-gradient(90deg,rgba(31,122,99,0.35),rgba(31,122,99,0.9))]"
+                            : generationState.status === "error"
+                              ? "w-full bg-[linear-gradient(90deg,rgba(201,111,59,0.35),rgba(201,111,59,0.86))]"
+                              : "w-1/4 bg-[rgba(92,88,79,0.18)]"
+                      }`}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="mt-5 rounded-[1.75rem] border border-line bg-white/70 p-4 sm:p-5">
                 <div className="flex flex-col gap-3 border-b border-line/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
@@ -616,7 +676,11 @@ export function FlowWorkbench() {
                   </button>
                 </div>
 
-                <div className="mt-4 rounded-[1.4rem] border border-line/80 bg-white/72 p-4 shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
+                <div
+                  className={`mt-4 rounded-[1.4rem] border border-line/80 bg-white/72 p-4 shadow-[0_12px_28px_rgba(38,32,24,0.04)] ${
+                    isPresentationMode ? "bg-white/84" : ""
+                  }`}
+                >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
@@ -666,10 +730,16 @@ export function FlowWorkbench() {
                   >
                     Refinar fluxo atual
                   </button>
-                  <div className="rounded-full border border-line/80 bg-white/65 px-4 py-3 text-sm text-muted">
-                    Gerar do zero cria uma nova estrutura. Refinar reaproveita o fluxo atual.
-                  </div>
-                  {refinementSuggestions.map((suggestion) => (
+                  {!isPresentationMode ? (
+                    <div className="rounded-full border border-line/80 bg-white/65 px-4 py-3 text-sm text-muted">
+                      Gerar do zero cria uma nova estrutura. Refinar reaproveita o fluxo atual.
+                    </div>
+                  ) : (
+                    <div className="rounded-full border border-[rgba(31,122,99,0.14)] bg-[rgba(239,250,245,0.82)] px-4 py-3 text-sm text-[#1d5f4f]">
+                      Refinar mantem o fluxo atual como contexto da proxima versao.
+                    </div>
+                  )}
+                  {refinementChips.map((suggestion) => (
                     <button
                       key={suggestion}
                       type="button"
@@ -683,7 +753,7 @@ export function FlowWorkbench() {
               </div>
             </div>
 
-            {isTechnicalVisible ? (
+            {isTechnicalVisible && !isPresentationMode ? (
               <div className="space-y-4">
                 <article className="rounded-[1.75rem] border border-line bg-[#1f1c18] p-5 text-white">
                   <p className="font-mono text-xs uppercase tracking-[0.24em] text-white/60">
@@ -736,7 +806,8 @@ export function FlowWorkbench() {
           </div>
         </article>
 
-        <aside className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
+        {!isPresentationMode ? (
+          <aside className="grid gap-4 sm:grid-cols-3 xl:grid-cols-1">
           <article className="rounded-[1.7rem] border border-line/70 bg-white/58 p-4 shadow-[0_14px_38px_rgba(38,32,24,0.05)]">
             <p className="font-mono text-xs uppercase tracking-[0.26em] text-muted">
               Guia rapido
@@ -772,7 +843,8 @@ export function FlowWorkbench() {
               a pagina.
             </p>
           </article>
-        </aside>
+          </aside>
+        ) : null}
       </section>
 
       <div className="grid gap-6 xl:col-start-2 xl:row-span-2 xl:row-start-1">
@@ -782,7 +854,7 @@ export function FlowWorkbench() {
             <div className="absolute bottom-10 right-10 h-52 w-52 rounded-full bg-accent-strong/16 blur-3xl" />
 
             <div
-              className={`relative overflow-hidden rounded-[2.6rem] border bg-surface p-4 shadow-[0_34px_120px_rgba(38,32,24,0.14)] transition-all duration-500 sm:p-5 2xl:p-6 ${
+              className={`relative overflow-hidden rounded-[2.6rem] border p-4 shadow-[0_34px_120px_rgba(38,32,24,0.14)] transition-all duration-500 sm:p-5 2xl:p-6 ${
                 isGenerating
                   ? "border-[rgba(69,97,127,0.14)] shadow-[0_34px_120px_rgba(38,32,24,0.14),0_0_0_1px_rgba(69,97,127,0.04)]"
                   : generationState.status === "error"
@@ -790,35 +862,39 @@ export function FlowWorkbench() {
                     : isPreviewCelebrating
                       ? "border-[rgba(31,122,99,0.18)] shadow-[0_34px_120px_rgba(38,32,24,0.14),0_0_0_10px_rgba(31,122,99,0.05)]"
                       : "border-line"
-              }`}
+              } ${isPresentationMode ? "bg-[rgba(255,250,242,0.92)] sm:p-6 2xl:p-7" : "bg-surface"}`}
             >
               <div className="mb-5 flex flex-col gap-4 border-b border-line/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-                    Resultado principal
+                    {isPresentationMode ? "Palco principal" : "Resultado principal"}
                   </p>
                   <h2 className="mt-3 text-[2rem] font-semibold tracking-[-0.05em] sm:text-[2.25rem] 2xl:text-[2.55rem]">
-                    Preview do fluxo com mais palco visual
+                    {isPresentationMode
+                      ? "Fluxograma pronto para demo"
+                      : "Preview do fluxo com mais palco visual"}
                   </h2>
                   <p className="mt-3 max-w-3xl text-sm leading-6 text-muted sm:text-base">
-                    O diagrama agora ocupa a maior area visivel da pagina e
-                    assume o papel de resultado principal, com apoio discreto
-                    dos controles ao redor.
+                    {isPresentationMode
+                      ? "A visualizacao ganha mais respiracao e menos ruido para apresentar o produto com clareza, foco e impacto."
+                      : "O diagrama agora ocupa a maior area visivel da pagina e assume o papel de resultado principal, com apoio discreto dos controles ao redor."}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsTechnicalVisible((current) => !current)}
-                    className={`rounded-full border px-5 py-3 text-sm font-medium transition ${
-                      isTechnicalVisible
-                        ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.92)] text-[#1d5f4f] hover:border-[#1f7a63]"
-                        : "border-line bg-white/72 text-muted hover:border-accent hover:bg-white hover:text-foreground"
-                    }`}
-                  >
-                    {technicalToggleLabel}
-                  </button>
+                  {!isPresentationMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsTechnicalVisible((current) => !current)}
+                      className={`rounded-full border px-5 py-3 text-sm font-medium transition ${
+                        isTechnicalVisible
+                          ? "border-[rgba(31,122,99,0.18)] bg-[rgba(239,250,245,0.92)] text-[#1d5f4f] hover:border-[#1f7a63]"
+                          : "border-line bg-white/72 text-muted hover:border-accent hover:bg-white hover:text-foreground"
+                      }`}
+                    >
+                      {technicalToggleLabel}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={handleExportImage}
@@ -836,49 +912,68 @@ export function FlowWorkbench() {
                 </div>
               </div>
 
-              <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-                <div
-                  className={`rounded-[1.4rem] border px-4 py-4 transition ${generationTone}`}
-                >
-                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                    Geracao
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-foreground">
+              {isPresentationMode ? (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[1.45rem] border border-line/80 bg-white/76 px-4 py-3">
+                  <div className={`rounded-full border px-3 py-1.5 text-sm ${generationTone}`}>
                     {generationState.title}
-                  </p>
-                  <p className="mt-2 text-sm leading-6 opacity-85">
-                    {generationState.detail}
-                  </p>
-                </div>
-                <div className="rounded-[1.4rem] border border-line/80 bg-white/72 px-4 py-4 text-center shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                    Nodes
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {validation.nodeCount}
-                  </p>
-                </div>
-                <div className="rounded-[1.4rem] border border-line/80 bg-white/72 px-4 py-4 text-center shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                    Edges
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold">
-                    {validation.edgeCount}
-                  </p>
-                </div>
-                <div className="rounded-[1.4rem] border border-line/80 bg-white/72 px-4 py-4 text-center shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
-                  <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                    Estado
-                  </p>
-                  <p className="mt-2 text-sm font-semibold">
+                  </div>
+                  <div className="rounded-full border border-line bg-white/82 px-3 py-1.5 text-sm text-muted">
+                    {validation.nodeCount} nodes
+                  </div>
+                  <div className="rounded-full border border-line bg-white/82 px-3 py-1.5 text-sm text-muted">
+                    {validation.edgeCount} edges
+                  </div>
+                  <div className="rounded-full border border-line bg-white/82 px-3 py-1.5 text-sm text-muted">
                     {validation.status === "valid"
                       ? "Estrutura valida"
                       : "Revisao pendente"}
-                  </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+                  <div
+                    className={`rounded-[1.4rem] border px-4 py-4 transition ${generationTone}`}
+                  >
+                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                      Geracao
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-foreground">
+                      {generationState.title}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 opacity-85">
+                      {generationState.detail}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-line/80 bg-white/72 px-4 py-4 text-center shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                      Nodes
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {validation.nodeCount}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-line/80 bg-white/72 px-4 py-4 text-center shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                      Edges
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {validation.edgeCount}
+                    </p>
+                  </div>
+                  <div className="rounded-[1.4rem] border border-line/80 bg-white/72 px-4 py-4 text-center shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
+                      Estado
+                    </p>
+                    <p className="mt-2 text-sm font-semibold">
+                      {validation.status === "valid"
+                        ? "Estrutura valida"
+                        : "Revisao pendente"}
+                    </p>
+                  </div>
+                </div>
+              )}
 
-              {!isTechnicalVisible ? (
+              {!isTechnicalVisible && !isPresentationMode ? (
                 <div className="mb-4 flex flex-col gap-3 rounded-[1.5rem] border border-line/80 bg-white/72 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
@@ -899,16 +994,18 @@ export function FlowWorkbench() {
                 </div>
               ) : null}
 
-              <div
-                className={`mb-5 rounded-[1.35rem] border p-4 transition ${exportTone}`}
-              >
-                <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                  Exportacao
-                </p>
-                <p className="mt-2 text-sm leading-6 opacity-85">
-                  {exportState.message}
-                </p>
-              </div>
+              {!isPresentationMode || exportState.status !== "idle" ? (
+                <div
+                  className={`mb-5 rounded-[1.35rem] border p-4 transition ${exportTone}`}
+                >
+                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
+                    Exportacao
+                  </p>
+                  <p className="mt-2 text-sm leading-6 opacity-85">
+                    {exportState.message}
+                  </p>
+                </div>
+              ) : null}
 
               {isGenerating ? (
                 <div className="pointer-events-none absolute inset-x-5 top-5 z-10 flex justify-end">
@@ -963,7 +1060,10 @@ export function FlowWorkbench() {
                 }`}
               >
                 {isPreviewMounted ? (
-                  <FlowPreview document={document} />
+                  <FlowPreview
+                    document={document}
+                    presentationMode={isPresentationMode}
+                  />
                 ) : (
                   <div
                     id={FLOW_PREVIEW_EXPORT_ID}
@@ -981,7 +1081,7 @@ export function FlowWorkbench() {
         </section>
       </div>
 
-      {isTechnicalVisible ? (
+      {isTechnicalVisible && !isPresentationMode ? (
         <div className="grid gap-8 xl:col-span-2 xl:grid-cols-[360px_minmax(0,1fr)] xl:items-start">
           <aside className="space-y-4 xl:sticky xl:top-8">
             <article className="rounded-[2rem] border border-line bg-surface p-5 shadow-[var(--shadow)]">

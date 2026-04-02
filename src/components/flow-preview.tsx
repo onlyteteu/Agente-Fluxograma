@@ -203,9 +203,16 @@ const nodeTypes: NodeTypes = {
   flowCard: FlowCardNode,
 };
 
-function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
+function FlowCanvas({
+  document,
+  presentationMode = false,
+}: {
+  document: NormalizedFlowDocument;
+  presentationMode?: boolean;
+}) {
   const { nodes, metrics } = layoutFlowDocument(document);
   const edges: Edge[] = buildRenderableEdges(document);
+  const canvasHeight = metrics.canvasHeight + (presentationMode ? 110 : 0);
   const flowKey = `${nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.type}`)
     .join("|")}::${edges
@@ -216,7 +223,7 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
     <div
       id={FLOW_PREVIEW_EXPORT_ID}
       className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.88),rgba(252,246,237,0.95))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
-      style={{ height: metrics.canvasHeight }}
+      style={{ height: canvasHeight }}
     >
       <ReactFlow
         key={flowKey}
@@ -245,32 +252,45 @@ function FlowCanvas({ document }: { document: NormalizedFlowDocument }) {
           size={1.1}
           variant={BackgroundVariant.Dots}
         />
-        <MiniMap
-          pannable
-          zoomable
-          maskColor="rgba(244, 239, 228, 0.72)"
-          nodeColor={(node) => {
-            if ("type" in node && node.type === "gateway") {
-              return "#1f7a63";
-            }
+        {!presentationMode ? (
+          <MiniMap
+            pannable
+            zoomable
+            maskColor="rgba(244, 239, 228, 0.72)"
+            nodeColor={(node) => {
+              if ("type" in node && node.type === "gateway") {
+                return "#1f7a63";
+              }
 
-            return "#c96f3b";
-          }}
-          className="!bottom-5 !right-5 !h-28 !w-40 !rounded-2xl !border !border-[rgba(28,27,25,0.08)] !bg-[#fffaf2]/95 !shadow-[0_20px_40px_rgba(38,32,24,0.14)]"
-        />
-        <Controls
-          showInteractive={false}
-          className="!bottom-5 !left-5 !rounded-2xl !border !border-[rgba(28,27,25,0.08)] !bg-[#fffaf2]/95 !shadow-[0_20px_40px_rgba(38,32,24,0.14)]"
-        />
+              return "#c96f3b";
+            }}
+            className="!bottom-5 !right-5 !h-28 !w-40 !rounded-2xl !border !border-[rgba(28,27,25,0.08)] !bg-[#fffaf2]/95 !shadow-[0_20px_40px_rgba(38,32,24,0.14)]"
+          />
+        ) : null}
+        {!presentationMode ? (
+          <Controls
+            showInteractive={false}
+            className="!bottom-5 !left-5 !rounded-2xl !border !border-[rgba(28,27,25,0.08)] !bg-[#fffaf2]/95 !shadow-[0_20px_40px_rgba(38,32,24,0.14)]"
+          />
+        ) : null}
       </ReactFlow>
     </div>
   );
 }
 
-export function FlowPreview({ document }: { document: NormalizedFlowDocument }) {
+export function FlowPreview({
+  document,
+  presentationMode = false,
+}: {
+  document: NormalizedFlowDocument;
+  presentationMode?: boolean;
+}) {
   return (
     <ReactFlowProvider>
-      <FlowCanvas document={document} />
+      <FlowCanvas
+        document={document}
+        presentationMode={presentationMode}
+      />
     </ReactFlowProvider>
   );
 }

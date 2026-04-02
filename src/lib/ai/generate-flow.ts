@@ -182,7 +182,7 @@ export async function generateFlowFromText(
     return await runFlowOperation({
       inputErrorMessage: "Descreva um processo antes de gerar o fluxograma.",
       missingModelMessage:
-        "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para gerar pelo modelo.",
+        "A integracao com IA ainda nao esta configurada neste ambiente. Defina GEMINI_API_KEY ou OPENAI_API_KEY para gerar pelo modelo.",
       successMessage: "Fluxograma gerado pela IA e validado com sucesso.",
       fallbackMessage:
         "Fluxograma gerado em modo local para manter o trabalho fluindo.",
@@ -223,7 +223,7 @@ export async function refineFlowFromInstruction(
     return await runFlowOperation({
       inputErrorMessage: "Escreva uma instrucao antes de refinar o fluxograma.",
       missingModelMessage:
-        "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para refinar pelo modelo.",
+        "A integracao com IA ainda nao esta configurada neste ambiente. Defina GEMINI_API_KEY ou OPENAI_API_KEY para refinar pelo modelo.",
       successMessage: "Fluxograma refinado pela IA e validado com sucesso.",
       fallbackMessage:
         "Refinamento aplicado em modo local sobre a estrutura atual.",

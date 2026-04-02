@@ -12,7 +12,7 @@ export const aiFlowNodeSchema = z.object({
 export const aiFlowEdgeSchema = z.object({
   source: z.string(),
   target: z.string(),
-  label: z.string().nullable(),
+  label: z.string().nullable().optional(),
 });
 
 export const aiFlowDocumentSchema = z.object({
@@ -22,7 +22,7 @@ export const aiFlowDocumentSchema = z.object({
 
 export type AiFlowDocument = z.infer<typeof aiFlowDocumentSchema>;
 
-function normalizeNullableLabel(label: string | null) {
+function normalizeNullableLabel(label: string | null | undefined) {
   const trimmed = label?.trim();
   return trimmed ? trimmed : undefined;
 }

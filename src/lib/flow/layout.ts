@@ -20,14 +20,38 @@ type NodeDimension = {
   height: number;
 };
 
+type NodeSurfaceRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export const flowNodeDimensions: Record<
   NormalizedFlowNode["type"],
   NodeDimension
 > = {
-  start: { width: 146, height: 146 },
-  task: { width: 336, height: 144 },
-  gateway: { width: 204, height: 204 },
-  end: { width: 150, height: 150 },
+  start: { width: 174, height: 174 },
+  task: { width: 376, height: 190 },
+  gateway: { width: 232, height: 236 },
+  end: { width: 178, height: 178 },
+};
+
+const flowNodeSurfaceRects: Record<
+  NormalizedFlowNode["type"],
+  NodeSurfaceRect
+> = {
+  start: { x: 12, y: 12, width: 150, height: 150 },
+  task: { x: 12, y: 10, width: 352, height: 162 },
+  gateway: { x: 10, y: 12, width: 212, height: 212 },
+  end: { x: 12, y: 12, width: 154, height: 154 },
+};
+
+const flowNodeHandleInsets: Record<NormalizedFlowNode["type"], number> = {
+  start: 12,
+  task: 12,
+  gateway: 12,
+  end: 12,
 };
 
 type LayoutNode = Node<NormalizedFlowNode>;
@@ -39,6 +63,14 @@ export function getFlowNodeDimension(type: NormalizedFlowNode["type"]) {
   return flowNodeDimensions[type];
 }
 
+export function getFlowNodeSurfaceRect(type: NormalizedFlowNode["type"]) {
+  return flowNodeSurfaceRects[type];
+}
+
+export function getFlowNodeHandleInset(type: NormalizedFlowNode["type"]) {
+  return flowNodeHandleInsets[type];
+}
+
 export function getFlowLayoutMetrics(
   document: NormalizedFlowDocument,
 ): FlowLayoutMetrics {
@@ -47,12 +79,12 @@ export function getFlowLayoutMetrics(
   const mediumFlow = nodeCount <= 6;
 
   return {
-    ranksep: compactFlow ? 74 : mediumFlow ? 84 : 98,
-    nodesep: compactFlow ? 30 : 38,
-    fitPadding: compactFlow ? 0.045 : mediumFlow ? 0.06 : 0.085,
-    minZoom: compactFlow ? 0.94 : mediumFlow ? 0.88 : 0.8,
-    maxZoom: compactFlow ? 1.56 : mediumFlow ? 1.48 : 1.36,
-    canvasHeight: compactFlow ? 560 : mediumFlow ? 630 : 740,
+    ranksep: compactFlow ? 82 : mediumFlow ? 92 : 108,
+    nodesep: compactFlow ? 34 : 42,
+    fitPadding: compactFlow ? 0.055 : mediumFlow ? 0.07 : 0.09,
+    minZoom: compactFlow ? 0.98 : mediumFlow ? 0.92 : 0.84,
+    maxZoom: compactFlow ? 1.52 : mediumFlow ? 1.44 : 1.3,
+    canvasHeight: compactFlow ? 590 : mediumFlow ? 680 : 780,
   };
 }
 
@@ -63,8 +95,8 @@ export function layoutFlowDocument(document: NormalizedFlowDocument) {
     rankdir: "TB",
     ranksep: metrics.ranksep,
     nodesep: metrics.nodesep,
-    marginx: 16,
-    marginy: 16,
+    marginx: 24,
+    marginy: 28,
     ranker: "network-simplex",
     acyclicer: "greedy",
   });

@@ -1,6 +1,8 @@
 import { getSmoothStepPath, Position } from "@xyflow/react";
 import {
   getFlowNodeDimension,
+  getFlowNodeHandleInset,
+  getFlowNodeSurfaceRect,
   layoutFlowDocument,
 } from "@/lib/flow/layout";
 import { normalizeFlowDocument } from "@/lib/flow/normalize";
@@ -104,15 +106,15 @@ function buildExportLayout(
   document: FlowSchemaDocument,
 ): ExportLayout {
   const normalizedDocument = normalizeFlowDocument(document);
-  const { nodes } = layoutFlowDocument(normalizedDocument);
+  const { nodes, metrics } = layoutFlowDocument(normalizedDocument);
   const bounds = getNodesBounds(nodes);
   const horizontalPadding = Math.max(
-    EXPORT_PADDING,
-    Math.round(bounds.width * 0.14),
+    EXPORT_PADDING - 8,
+    Math.round(bounds.width * (metrics.fitPadding + 0.08)),
   );
   const verticalPadding = Math.max(
-    EXPORT_PADDING,
-    Math.round(bounds.height * 0.16),
+    EXPORT_PADDING - 2,
+    Math.round(bounds.height * (metrics.fitPadding + 0.1)),
   );
   const width = Math.max(
     EXPORT_MIN_WIDTH,
@@ -367,15 +369,24 @@ function drawStartNode(
   shiftY: number,
 ) {
   const dimension = getFlowNodeDimension(node.data.type);
-  const x = node.position.x + shiftX;
-  const y = node.position.y + shiftY;
-  const centerX = x + dimension.width / 2;
-  const centerY = y + dimension.height / 2;
-  const outerRadius = dimension.width / 2;
+  const surface = getFlowNodeSurfaceRect(node.data.type);
+  const frameX = node.position.x + shiftX;
+  const frameY = node.position.y + shiftY;
+  const x = frameX + surface.x;
+  const y = frameY + surface.y;
+  const centerX = x + surface.width / 2;
+  const centerY = y + surface.height / 2;
+  const outerRadius = surface.width / 2;
   const innerRadius = Math.round(outerRadius * 0.76);
+  const handleInset = getFlowNodeHandleInset(node.data.type);
 
-  drawHandle(context, centerX, y, "#c96f3b");
-  drawHandle(context, centerX, y + dimension.height, "#c96f3b");
+  drawHandle(context, frameX + dimension.width / 2, frameY + handleInset, "#c96f3b");
+  drawHandle(
+    context,
+    frameX + dimension.width / 2,
+    frameY + dimension.height - handleInset,
+    "#c96f3b",
+  );
 
   const outerGradient = context.createRadialGradient(
     x + 44,
@@ -422,7 +433,7 @@ function drawStartNode(
 
   context.save();
   context.font = TITLE_SMALL_FONT;
-  const labelLines = wrapText(context, node.data.label, 82, 2);
+  const labelLines = wrapText(context, node.data.label, 88, 2);
   context.restore();
 
   drawTextLines(context, labelLines, centerX, y + 84, 18, {
@@ -439,15 +450,24 @@ function drawEndNode(
   shiftY: number,
 ) {
   const dimension = getFlowNodeDimension(node.data.type);
-  const x = node.position.x + shiftX;
-  const y = node.position.y + shiftY;
-  const centerX = x + dimension.width / 2;
-  const centerY = y + dimension.height / 2;
-  const outerRadius = Math.round(dimension.width / 2 - 6);
+  const surface = getFlowNodeSurfaceRect(node.data.type);
+  const frameX = node.position.x + shiftX;
+  const frameY = node.position.y + shiftY;
+  const x = frameX + surface.x;
+  const y = frameY + surface.y;
+  const centerX = x + surface.width / 2;
+  const centerY = y + surface.height / 2;
+  const outerRadius = Math.round(surface.width / 2 - 6);
   const innerRadius = Math.round(outerRadius * 0.74);
+  const handleInset = getFlowNodeHandleInset(node.data.type);
 
-  drawHandle(context, centerX, y, "#2e2822");
-  drawHandle(context, centerX, y + dimension.height, "#2e2822");
+  drawHandle(context, frameX + dimension.width / 2, frameY + handleInset, "#2e2822");
+  drawHandle(
+    context,
+    frameX + dimension.width / 2,
+    frameY + dimension.height - handleInset,
+    "#2e2822",
+  );
 
   const outerGradient = context.createRadialGradient(
     x + 46,
@@ -494,7 +514,7 @@ function drawEndNode(
 
   context.save();
   context.font = TITLE_SMALL_FONT;
-  const labelLines = wrapText(context, node.data.label, 84, 2);
+  const labelLines = wrapText(context, node.data.label, 90, 2);
   context.restore();
 
   drawTextLines(context, labelLines, centerX, y + 86, 18, {
@@ -511,12 +531,21 @@ function drawTaskNode(
   shiftY: number,
 ) {
   const dimension = getFlowNodeDimension(node.data.type);
-  const x = node.position.x + shiftX;
-  const y = node.position.y + shiftY;
-  const palette = getTaskPalette(context, node.data.tone, x, y, dimension.height);
+  const surface = getFlowNodeSurfaceRect(node.data.type);
+  const frameX = node.position.x + shiftX;
+  const frameY = node.position.y + shiftY;
+  const x = frameX + surface.x;
+  const y = frameY + surface.y;
+  const palette = getTaskPalette(context, node.data.tone, x, y, surface.height);
+  const handleInset = getFlowNodeHandleInset(node.data.type);
 
-  drawHandle(context, x + dimension.width / 2, y, "#8b7c6c");
-  drawHandle(context, x + dimension.width / 2, y + dimension.height, "#8b7c6c");
+  drawHandle(context, frameX + dimension.width / 2, frameY + handleInset, "#8b7c6c");
+  drawHandle(
+    context,
+    frameX + dimension.width / 2,
+    frameY + dimension.height - handleInset,
+    "#8b7c6c",
+  );
 
   context.save();
   context.shadowColor = "rgba(46,35,23,0.14)";
@@ -526,8 +555,8 @@ function drawTaskNode(
     context,
     x,
     y,
-    dimension.width,
-    dimension.height,
+    surface.width,
+    surface.height,
     30,
     palette.fill,
     palette.stroke,
@@ -569,7 +598,7 @@ function drawTaskNode(
 
   context.save();
   context.font = TITLE_FONT;
-  const labelLines = wrapText(context, node.data.label, 236, 3);
+  const labelLines = wrapText(context, node.data.label, 252, 3);
   context.restore();
 
   drawTextLines(context, labelLines, x + 70, y + 62, 22, {
@@ -579,7 +608,7 @@ function drawTaskNode(
 
   context.save();
   context.font = BODY_FONT;
-  const descriptionLines = wrapText(context, node.data.description, 228, 2);
+  const descriptionLines = wrapText(context, node.data.description, 244, 2);
   context.restore();
 
   drawTextLines(context, descriptionLines, x + 70, y + 108, 18, {
@@ -596,21 +625,22 @@ function drawGatewayNode(
   shiftY: number,
 ) {
   const dimension = getFlowNodeDimension(node.data.type);
-  const x = node.position.x + shiftX;
-  const y = node.position.y + shiftY;
-  const centerX = x + dimension.width / 2;
-  const centerY = y + dimension.height / 2;
-  const outerSize = 158;
-  const innerSize = 116;
+  const frameX = node.position.x + shiftX;
+  const frameY = node.position.y + shiftY;
+  const centerX = frameX + dimension.width / 2;
+  const centerY = frameY + dimension.height / 2;
+  const outerSize = 164;
+  const innerSize = 120;
+  const handleInset = getFlowNodeHandleInset(node.data.type);
 
-  drawHandle(context, centerX, y, "#1f7a63");
-  drawHandle(context, centerX, y + dimension.height, "#1f7a63");
+  drawHandle(context, centerX, frameY + handleInset, "#1f7a63");
+  drawHandle(context, centerX, frameY + dimension.height - handleInset, "#1f7a63");
 
   const outerGradient = context.createLinearGradient(
     centerX,
-    y + 23,
+    centerY - outerSize / 2,
     centerX,
-    y + dimension.height - 23,
+    centerY + outerSize / 2,
   );
   outerGradient.addColorStop(0, "#f4fcf8");
   outerGradient.addColorStop(1, "rgba(255,255,255,0.92)");
@@ -648,7 +678,7 @@ function drawGatewayNode(
   );
   context.restore();
 
-  drawTextLines(context, ["Decisao"], centerX, y + 78, 12, {
+  drawTextLines(context, ["Decisao"], centerX, frameY + 86, 12, {
     font: MONO_SMALL_FONT,
     fillStyle: "#17352d",
     textAlign: "center",
@@ -657,10 +687,10 @@ function drawGatewayNode(
 
   context.save();
   context.font = TITLE_MEDIUM_FONT;
-  const labelLines = wrapText(context, node.data.label, 126, 3);
+  const labelLines = wrapText(context, node.data.label, 138, 3);
   context.restore();
 
-  drawTextLines(context, labelLines, centerX, y + 120, 18, {
+  drawTextLines(context, labelLines, centerX, frameY + 128, 18, {
     font: TITLE_MEDIUM_FONT,
     fillStyle: "#17352d",
     textAlign: "center",
@@ -696,9 +726,13 @@ function getNodeCenterX(node: PositionedFlowNode) {
   return node.position.x + dimension.width / 2;
 }
 
-function getNodeBottomY(node: PositionedFlowNode) {
+function getNodeSourceY(node: PositionedFlowNode) {
   const dimension = getFlowNodeDimension(node.data.type);
-  return node.position.y + dimension.height;
+  return node.position.y + dimension.height - getFlowNodeHandleInset(node.data.type);
+}
+
+function getNodeTargetY(node: PositionedFlowNode) {
+  return node.position.y + getFlowNodeHandleInset(node.data.type);
 }
 
 function drawArrowHead(
@@ -733,9 +767,9 @@ function drawEdge(
   }
 
   const sourceX = getNodeCenterX(sourceNode) + shiftX;
-  const sourceY = getNodeBottomY(sourceNode) + shiftY;
+  const sourceY = getNodeSourceY(sourceNode) + shiftY;
   const targetX = getNodeCenterX(targetNode) + shiftX;
-  const targetY = targetNode.position.y + shiftY;
+  const targetY = getNodeTargetY(targetNode) + shiftY;
   const strokeColor = edge.label ? "#1f7a63" : "#73685d";
   const strokeWidth = edge.label ? 2.6 : 2.2;
   const [pathData, labelX, labelY] = getSmoothStepPath({

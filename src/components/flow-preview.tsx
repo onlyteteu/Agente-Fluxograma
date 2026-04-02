@@ -16,7 +16,12 @@ import {
   type NodeTypes,
 } from "@xyflow/react";
 import { FLOW_PREVIEW_EXPORT_ID } from "@/lib/export/flow-export";
-import { layoutFlowDocument } from "@/lib/flow/layout";
+import {
+  getFlowNodeDimension,
+  getFlowNodeHandleInset,
+  getFlowNodeSurfaceRect,
+  layoutFlowDocument,
+} from "@/lib/flow/layout";
 import type {
   NormalizedFlowDocument,
   NormalizedFlowNode,
@@ -72,7 +77,13 @@ function buildRenderableEdges(document: NormalizedFlowDocument) {
   }));
 }
 
-function BaseHandles({ tone }: { tone: "start" | "task" | "gateway" | "end" }) {
+function BaseHandles({
+  tone,
+  type,
+}: {
+  tone: "start" | "task" | "gateway" | "end";
+  type: FlowNodeData["type"];
+}) {
   const handleColor =
     tone === "start"
       ? "#c96f3b"
@@ -81,6 +92,7 @@ function BaseHandles({ tone }: { tone: "start" | "task" | "gateway" | "end" }) {
         : tone === "end"
           ? "#2e2822"
           : "#8b7c6c";
+  const inset = getFlowNodeHandleInset(type);
 
   return (
     <>
@@ -88,30 +100,37 @@ function BaseHandles({ tone }: { tone: "start" | "task" | "gateway" | "end" }) {
         type="target"
         position={Position.Top}
         className="!h-3 !w-3 !border-2 !border-white !shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
-        style={{ backgroundColor: handleColor }}
+        style={{ backgroundColor: handleColor, top: inset }}
       />
       <Handle
         type="source"
         position={Position.Bottom}
         className="!h-3 !w-3 !border-2 !border-white !shadow-[0_4px_12px_rgba(0,0,0,0.12)]"
-        style={{ backgroundColor: handleColor }}
+        style={{ backgroundColor: handleColor, bottom: inset }}
       />
     </>
   );
 }
 
 function StartNode({ data }: { data: FlowNodeData }) {
+  const frame = getFlowNodeDimension("start");
+  const surface = getFlowNodeSurfaceRect("start");
+
   return (
-    <div className="relative flex h-[146px] w-[146px] items-center justify-center">
-      <BaseHandles tone="start" />
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: frame.width, height: frame.height }}
+    >
+      <BaseHandles tone="start" type="start" />
       <div
         className={`flex h-full w-full items-center justify-center rounded-full border-2 shadow-[0_24px_60px_rgba(46,35,23,0.16)] ${eventPalette.start}`}
+        style={{ width: surface.width, height: surface.height }}
       >
-        <div className="flex h-[112px] w-[112px] flex-col items-center justify-center rounded-full border border-white/60 bg-white/45 px-3 text-center backdrop-blur-sm">
+        <div className="flex h-[116px] w-[116px] flex-col items-center justify-center rounded-full border border-white/60 bg-white/45 px-3 text-center backdrop-blur-sm">
           <p className="font-mono text-[10px] uppercase tracking-[0.28em] opacity-65">
             Inicio
           </p>
-          <p className="mt-2 max-w-[82px] text-[15px] leading-[1.2] font-semibold tracking-[-0.03em] text-balance">
+          <p className="mt-2 max-w-[88px] text-[15px] leading-[1.2] font-semibold tracking-[-0.03em] text-balance">
             {data.label}
           </p>
         </div>
@@ -121,17 +140,24 @@ function StartNode({ data }: { data: FlowNodeData }) {
 }
 
 function EndNode({ data }: { data: FlowNodeData }) {
+  const frame = getFlowNodeDimension("end");
+  const surface = getFlowNodeSurfaceRect("end");
+
   return (
-    <div className="relative flex h-[150px] w-[150px] items-center justify-center">
-      <BaseHandles tone="end" />
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: frame.width, height: frame.height }}
+    >
+      <BaseHandles tone="end" type="end" />
       <div
         className={`flex h-full w-full items-center justify-center rounded-full border-[4px] shadow-[0_28px_60px_rgba(20,16,12,0.22)] ${eventPalette.end}`}
+        style={{ width: surface.width, height: surface.height }}
       >
-        <div className="flex h-[112px] w-[112px] flex-col items-center justify-center rounded-full border border-white/12 bg-black/10 px-3 text-center backdrop-blur-sm">
+        <div className="flex h-[116px] w-[116px] flex-col items-center justify-center rounded-full border border-white/12 bg-black/10 px-3 text-center backdrop-blur-sm">
           <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-white/58">
             Fim
           </p>
-          <p className="mt-2 max-w-[84px] text-[15px] leading-[1.2] font-semibold tracking-[-0.03em] text-balance text-white">
+          <p className="mt-2 max-w-[90px] text-[15px] leading-[1.2] font-semibold tracking-[-0.03em] text-balance text-white">
             {data.label}
           </p>
         </div>
@@ -141,41 +167,57 @@ function EndNode({ data }: { data: FlowNodeData }) {
 }
 
 function TaskNode({ data }: { data: FlowNodeData }) {
-  return (
-    <div
-      className={`relative min-h-[144px] w-[336px] rounded-[30px] border p-5 shadow-[0_24px_60px_rgba(46,35,23,0.14)] backdrop-blur ${taskPalette[data.tone]}`}
-    >
-      <BaseHandles tone="task" />
-      <div className="pointer-events-none absolute left-4 top-4 h-10 w-10 rounded-xl border border-current/10 bg-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]" />
-      <div className="pointer-events-none absolute left-[22px] top-[24px] h-3 w-4 rounded-sm border border-current/35" />
-      <div className="pointer-events-none absolute left-[22px] top-[31px] h-px w-12 bg-current/18" />
+  const frame = getFlowNodeDimension("task");
+  const surface = getFlowNodeSurfaceRect("task");
 
-      <div className="ml-14 pr-3">
-        <p className="font-mono text-[11px] uppercase tracking-[0.28em] opacity-65">
-          {data.eyebrow}
-        </p>
-        <h3 className="mt-3 max-w-[236px] break-words text-[20px] leading-[1.24] font-semibold tracking-[-0.04em] text-balance">
-          {data.label}
-        </h3>
-        <p className="mt-3 max-w-[228px] text-[13px] leading-[1.45] opacity-72">
-          {data.description}
-        </p>
+  return (
+    <div className="relative" style={{ width: frame.width, height: frame.height }}>
+      <BaseHandles tone="task" type="task" />
+      <div
+        className={`absolute rounded-[30px] border p-5 shadow-[0_24px_60px_rgba(46,35,23,0.14)] backdrop-blur ${taskPalette[data.tone]}`}
+        style={{
+          left: surface.x,
+          top: surface.y,
+          width: surface.width,
+          height: surface.height,
+        }}
+      >
+        <div className="pointer-events-none absolute left-4 top-4 h-10 w-10 rounded-xl border border-current/10 bg-white/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]" />
+        <div className="pointer-events-none absolute left-[22px] top-[24px] h-3 w-4 rounded-sm border border-current/35" />
+        <div className="pointer-events-none absolute left-[22px] top-[31px] h-px w-12 bg-current/18" />
+
+        <div className="ml-14 pr-3">
+          <p className="font-mono text-[11px] uppercase tracking-[0.28em] opacity-65">
+            {data.eyebrow}
+          </p>
+          <h3 className="mt-3 max-w-[252px] break-words text-[20px] leading-[1.22] font-semibold tracking-[-0.04em] text-balance">
+            {data.label}
+          </h3>
+          <p className="mt-3 max-w-[244px] text-[13px] leading-[1.45] opacity-72">
+            {data.description}
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
 function GatewayNode({ data }: { data: FlowNodeData }) {
+  const frame = getFlowNodeDimension("gateway");
+
   return (
-    <div className="relative flex h-[204px] w-[204px] items-center justify-center">
-      <BaseHandles tone="gateway" />
-      <div className="absolute h-[158px] w-[158px] rotate-45 rounded-[30px] border border-[rgba(31,122,99,0.28)] bg-[linear-gradient(180deg,rgba(244,252,248,0.98),rgba(255,255,255,0.92))] shadow-[0_24px_60px_rgba(24,77,63,0.14)]" />
-      <div className="absolute h-[116px] w-[116px] rotate-45 rounded-[22px] border border-[rgba(31,122,99,0.12)] bg-white/72 backdrop-blur-sm" />
-      <div className="relative z-10 flex max-w-[126px] flex-col items-center text-center text-[#17352d]">
+    <div
+      className="relative flex items-center justify-center"
+      style={{ width: frame.width, height: frame.height }}
+    >
+      <BaseHandles tone="gateway" type="gateway" />
+      <div className="absolute h-[164px] w-[164px] rotate-45 rounded-[32px] border border-[rgba(31,122,99,0.28)] bg-[linear-gradient(180deg,rgba(244,252,248,0.98),rgba(255,255,255,0.92))] shadow-[0_24px_60px_rgba(24,77,63,0.14)]" />
+      <div className="absolute h-[120px] w-[120px] rotate-45 rounded-[24px] border border-[rgba(31,122,99,0.12)] bg-white/72 backdrop-blur-sm" />
+      <div className="relative z-10 flex max-w-[138px] flex-col items-center text-center text-[#17352d]">
         <p className="font-mono text-[10px] uppercase tracking-[0.28em] opacity-65">
           Decisao
         </p>
-        <p className="mt-3 break-words text-[16px] leading-[1.22] font-semibold tracking-[-0.04em] text-balance">
+        <p className="mt-3 break-words text-[17px] leading-[1.18] font-semibold tracking-[-0.04em] text-balance">
           {data.label}
         </p>
       </div>

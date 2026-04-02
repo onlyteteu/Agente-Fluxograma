@@ -5,6 +5,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { aiFlowDocumentSchema, sanitizeAiFlowDocument } from "./flow-output";
 
 let cachedClient: OpenAI | null | undefined;
+let cachedAvailabilityIssue: string | null = null;
 
 type FlowModelErrorDetails = {
   status?: number;
@@ -22,6 +23,10 @@ function getModelName() {
 
 export function isFlowModelConfigured() {
   return Boolean(getApiKey());
+}
+
+export function getFlowModelAvailabilityIssue() {
+  return cachedAvailabilityIssue;
 }
 
 function getOpenAIClient() {
@@ -50,6 +55,22 @@ function getFlowModelErrorDetails(error: unknown): FlowModelErrorDetails {
     code: typeof details.code === "string" ? details.code : undefined,
     message: error.message,
   };
+}
+
+function shouldDisableFlowModelForSession(error: unknown) {
+  const details = getFlowModelErrorDetails(error);
+  const normalizedCode = details.code?.toLowerCase();
+  const normalizedMessage = details.message?.toLowerCase() ?? "";
+
+  return (
+    normalizedCode === "insufficient_quota" ||
+    normalizedCode === "invalid_api_key" ||
+    details.status === 401 ||
+    details.status === 403 ||
+    details.status === 429 ||
+    normalizedMessage.includes("quota") ||
+    normalizedMessage.includes("api key")
+  );
 }
 
 export function describeFlowModelError(error: unknown) {
@@ -101,31 +122,44 @@ export async function requestStructuredFlowDocument(
   const openai = getOpenAIClient();
 
   if (!openai) {
-    return null;
+    throw new Error(
+      cachedAvailabilityIssue ?? "A IA nao ficou disponivel neste momento.",
+    );
   }
 
-  const response = await openai.responses.parse({
-    model: getModelName(),
-    input: [
-      {
-        role: "system",
-        content: systemPrompt,
+  try {
+    const response = await openai.responses.parse({
+      model: getModelName(),
+      input: [
+        {
+          role: "system",
+          content: systemPrompt,
+        },
+        {
+          role: "user",
+          content: userPrompt,
+        },
+      ],
+      text: {
+        format: zodTextFormat(aiFlowDocumentSchema, "flow_document"),
       },
-      {
-        role: "user",
-        content: userPrompt,
-      },
-    ],
-    text: {
-      format: zodTextFormat(aiFlowDocumentSchema, "flow_document"),
-    },
-  });
+    });
 
-  const parsed = response.output_parsed;
+    const parsed = response.output_parsed;
 
-  if (!parsed) {
-    throw new Error("O modelo nao retornou uma estrutura utilizavel para o fluxograma.");
+    if (!parsed) {
+      throw new Error(
+        "O modelo nao retornou uma estrutura utilizavel para o fluxograma.",
+      );
+    }
+
+    return sanitizeAiFlowDocument(parsed);
+  } catch (error) {
+    if (shouldDisableFlowModelForSession(error)) {
+      cachedAvailabilityIssue = describeFlowModelError(error);
+      cachedClient = null;
+    }
+
+    throw error;
   }
-
-  return sanitizeAiFlowDocument(parsed);
 }

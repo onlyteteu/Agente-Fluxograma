@@ -329,7 +329,7 @@ export function FlowWorkbench({
           title:
             result.source === "ai"
               ? "Fluxograma atualizado"
-              : "Fluxograma gerado com fallback",
+              : "Fluxograma gerado em modo local",
           detail: result.message,
           source: result.source,
         });
@@ -387,7 +387,7 @@ export function FlowWorkbench({
           title:
             result.source === "ai"
               ? "Fluxograma refinado"
-              : "Refinamento aplicado com fallback",
+              : "Refinamento aplicado em modo local",
           detail: result.message,
           source: result.source,
         });
@@ -1033,7 +1033,7 @@ export function FlowWorkbench({
                     }`}
                   >
                     {generationState.source === "simulator"
-                      ? "Preview atualizado com fallback"
+                      ? "Preview atualizado em modo local"
                       : "Preview atualizado"}
                   </div>
                 </div>

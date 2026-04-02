@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   describeFlowModelError,
+  getFlowModelAvailabilityIssue,
   isFlowModelConfigured,
   requestStructuredFlowDocument,
 } from "./model-client";
@@ -72,7 +73,29 @@ type RunFlowOperationOptions = {
 };
 
 function appendFallbackReason(baseMessage: string, reason: string) {
-  return `${baseMessage} Motivo: ${reason}`;
+  const normalizedReason = reason.toLowerCase();
+
+  if (
+    normalizedReason.includes("limite de uso") ||
+    normalizedReason.includes("faturamento") ||
+    normalizedReason.includes("chave") ||
+    normalizedReason.includes("permissao")
+  ) {
+    return `${baseMessage} A geracao por IA premium segue indisponivel neste ambiente.`;
+  }
+
+  if (
+    normalizedReason.includes("conectar") ||
+    normalizedReason.includes("temporaria")
+  ) {
+    return `${baseMessage} A integracao com IA esta instavel no momento.`;
+  }
+
+  if (normalizedReason.includes("schema")) {
+    return `${baseMessage} A resposta da IA nao ficou valida nesta tentativa.`;
+  }
+
+  return `${baseMessage} A integracao com IA nao respondeu como esperado.`;
 }
 
 async function runFlowOperation(
@@ -94,6 +117,23 @@ async function runFlowOperation(
     }
 
     throw new Error(options.missingModelMessage);
+  }
+
+  const availabilityIssue = getFlowModelAvailabilityIssue();
+
+  if (availabilityIssue) {
+    if (fallbackEnabled) {
+      return {
+        document: options.fallback(),
+        message: appendFallbackReason(
+          options.fallbackMessage,
+          availabilityIssue,
+        ),
+        source: "simulator",
+      };
+    }
+
+    throw new Error(availabilityIssue);
   }
 
   try {
@@ -145,7 +185,7 @@ export async function generateFlowFromText(
         "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para gerar pelo modelo.",
       successMessage: "Fluxograma gerado pela IA e validado com sucesso.",
       fallbackMessage:
-        "API de IA nao configurada ou indisponivel. Usando o gerador temporario local.",
+        "Fluxograma gerado em modo local para manter o trabalho fluindo.",
       prompt: {
         system: buildFlowGenerationInstructions(),
         user: buildFlowGenerationUserPrompt(trimmed),
@@ -186,7 +226,7 @@ export async function refineFlowFromInstruction(
         "A integracao com IA ainda nao esta configurada neste ambiente. Defina OPENAI_API_KEY para refinar pelo modelo.",
       successMessage: "Fluxograma refinado pela IA e validado com sucesso.",
       fallbackMessage:
-        "A IA nao refinou o fluxo de forma valida neste momento. Aplicando o fallback local sobre a estrutura atual.",
+        "Refinamento aplicado em modo local sobre a estrutura atual.",
       prompt: {
         system: buildFlowRefinementInstructions(),
         user: buildFlowRefinementUserPrompt(

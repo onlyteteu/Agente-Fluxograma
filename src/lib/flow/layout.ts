@@ -47,12 +47,12 @@ export function getFlowLayoutMetrics(
   const mediumFlow = nodeCount <= 6;
 
   return {
-    ranksep: compactFlow ? 82 : mediumFlow ? 92 : 102,
-    nodesep: compactFlow ? 34 : 42,
-    fitPadding: compactFlow ? 0.075 : mediumFlow ? 0.09 : 0.105,
-    minZoom: compactFlow ? 0.84 : 0.78,
-    maxZoom: 1.34,
-    canvasHeight: compactFlow ? 660 : mediumFlow ? 730 : 800,
+    ranksep: compactFlow ? 74 : mediumFlow ? 84 : 98,
+    nodesep: compactFlow ? 30 : 38,
+    fitPadding: compactFlow ? 0.045 : mediumFlow ? 0.06 : 0.085,
+    minZoom: compactFlow ? 0.94 : mediumFlow ? 0.88 : 0.8,
+    maxZoom: compactFlow ? 1.56 : mediumFlow ? 1.48 : 1.36,
+    canvasHeight: compactFlow ? 560 : mediumFlow ? 630 : 740,
   };
 }
 

@@ -483,19 +483,37 @@ export function FlowWorkbench({
 
           <div className="mt-4 grid gap-4">
             <div>
-              <label
-                htmlFor="process-text"
-                className="font-mono text-xs uppercase tracking-[0.26em] text-muted"
-              >
-                Texto do processo
-              </label>
-              <textarea
-                id="process-text"
-                value={processText}
-                onChange={(event) => setProcessText(event.target.value)}
-                placeholder="Exemplo: quando um pedido chega, o time confere estoque, aprova pagamento e decide se o envio pode seguir..."
-                className="mt-3 min-h-[212px] w-full resize-y rounded-[1.85rem] border border-line bg-[#fffdf8] p-5 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-[#8b8175] focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
-              />
+              <div className="rounded-[1.85rem] border border-line bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(255,249,241,0.94))] p-3 shadow-[0_18px_48px_rgba(38,32,24,0.06)]">
+                <div className="flex items-center justify-between gap-3 rounded-[1.2rem] border border-line/70 bg-white/62 px-4 py-3">
+                  <div>
+                    <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-muted">
+                      Prompt principal
+                    </p>
+                    <p className="mt-1 text-sm text-muted">
+                      Descreva o processo em linguagem natural.
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-line/70 bg-white/85 px-3 py-1.5 text-sm text-muted">
+                    {processText.trim().length === 0
+                      ? "Pronto para escrever"
+                      : "Pronto para gerar"}
+                  </div>
+                </div>
+
+                <label
+                  htmlFor="process-text"
+                  className="sr-only"
+                >
+                  Texto do processo
+                </label>
+                <textarea
+                  id="process-text"
+                  value={processText}
+                  onChange={(event) => setProcessText(event.target.value)}
+                  placeholder="Descreva o fluxo principal, as etapas mais importantes e as decisoes que mudam o caminho."
+                  className="mt-3 min-h-[228px] w-full resize-y rounded-[1.45rem] border border-[rgba(28,27,25,0.08)] bg-[#fffdfa] px-5 py-4 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-[#8b8175] focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
+                />
+              </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button
@@ -783,6 +801,9 @@ export function FlowWorkbench({
             >
               <div className="mb-3 flex flex-col gap-3 border-b border-line/70 pb-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
+                  <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-muted">
+                    Resultado principal
+                  </p>
                   <h2 className="text-[1.8rem] font-semibold tracking-[-0.05em] sm:text-[2rem] 2xl:text-[2.2rem]">
                     {isPresentationMode
                       ? "Fluxograma pronto para demo"

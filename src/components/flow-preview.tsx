@@ -212,7 +212,7 @@ function FlowCanvas({
 }) {
   const { nodes, metrics } = layoutFlowDocument(document);
   const edges: Edge[] = buildRenderableEdges(document);
-  const canvasHeight = metrics.canvasHeight + (presentationMode ? 110 : 24);
+  const canvasHeight = metrics.canvasHeight + (presentationMode ? 68 : 8);
   const flowKey = `${nodes
     .map((node) => `${node.id}:${node.data.label}:${node.data.type}`)
     .join("|")}::${edges
@@ -222,7 +222,7 @@ function FlowCanvas({
   return (
     <div
       id={FLOW_PREVIEW_EXPORT_ID}
-      className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.9),rgba(252,246,237,0.96))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
+      className="w-full overflow-hidden rounded-[2rem] border border-[rgba(28,27,25,0.08)] bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.94),rgba(252,246,237,0.97))] shadow-[0_34px_120px_rgba(38,32,24,0.16)]"
       style={{ height: canvasHeight }}
     >
       <ReactFlow
@@ -236,7 +236,7 @@ function FlowCanvas({
           minZoom: metrics.minZoom,
           maxZoom: metrics.maxZoom,
         }}
-        minZoom={0.72}
+        minZoom={Math.max(0.72, metrics.minZoom - 0.08)}
         maxZoom={metrics.maxZoom}
         attributionPosition="bottom-left"
         proOptions={{ hideAttribution: true }}
@@ -244,12 +244,12 @@ function FlowCanvas({
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        className="bg-transparent"
+        className="bg-transparent [&_.react-flow__viewport]:transition-transform [&_.react-flow__viewport]:duration-500"
       >
         <Background
-          color="rgba(120, 105, 91, 0.14)"
-          gap={22}
-          size={1.1}
+          color="rgba(120,105,91,0.12)"
+          gap={20}
+          size={1}
           variant={BackgroundVariant.Dots}
         />
         {!presentationMode ? (

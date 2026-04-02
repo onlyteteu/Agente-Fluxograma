@@ -105,22 +105,6 @@ function getToneByStatus(status: GenerationState["status"] | ExportState["status
   return "border-line bg-white/60 text-muted";
 }
 
-function getGenerationEyebrow(status: GenerationState["status"]) {
-  if (status === "loading") {
-    return "Processando";
-  }
-
-  if (status === "success") {
-    return "Sucesso";
-  }
-
-  if (status === "error") {
-    return "Geracao";
-  }
-
-  return "Estado";
-}
-
 type FlowWorkbenchProps = {
   isPresentationMode?: boolean;
 };
@@ -133,12 +117,9 @@ export function FlowWorkbench({
   const [refinementText, setRefinementText] = useState(exampleRefinementPrompt);
   const [isTechnicalVisible, setIsTechnicalVisible] = useState(false);
   const [isSupportVisible, setIsSupportVisible] = useState(false);
-  const [isMorePromptSuggestionsVisible, setIsMorePromptSuggestionsVisible] =
+  const [isSecondaryActionsVisible, setIsSecondaryActionsVisible] =
     useState(false);
-  const [
-    isMoreRefinementSuggestionsVisible,
-    setIsMoreRefinementSuggestionsVisible,
-  ] = useState(false);
+  const [isSuggestionsVisible, setIsSuggestionsVisible] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPreviewMounted, setIsPreviewMounted] = useState(false);
   const [isPreviewCelebrating, setIsPreviewCelebrating] = useState(false);
@@ -462,36 +443,18 @@ export function FlowWorkbench({
     }
   }
 
-  const generationTone =
-    getToneByStatus(generationState.status);
   const exportTone = getToneByStatus(exportState.status);
   const technicalToggleLabel = isTechnicalVisible
     ? "Ocultar estrutura tecnica"
     : "Ver estrutura tecnica";
   const canRefine =
     hasGeneratedFlow && validation.status === "valid" && !isGenerating;
-  const refinementStatusTitle = hasGeneratedFlow
-    ? "Fluxo atual pronto para evoluir"
-    : "Gere um fluxo para liberar o refinamento";
-  const refinementStatusDetail = hasGeneratedFlow
-    ? "A proxima instrucao usa o diagrama atual como base e preserva a estrutura valida sempre que possivel."
-    : "Primeiro gere um fluxo a partir do texto. Depois use instrucoes curtas para ajustar etapas, decisoes ou caminhos.";
-  const visiblePromptChips = isMorePromptSuggestionsVisible
-    ? promptSuggestions
-    : promptSuggestions.slice(0, 2);
-  const visibleRefinementChips = isMoreRefinementSuggestionsVisible
-    ? refinementSuggestions
-    : refinementSuggestions.slice(0, 2);
-  const hasExtraPromptSuggestions =
-    visiblePromptChips.length < promptSuggestions.length;
-  const hasExtraRefinementSuggestions =
-    visibleRefinementChips.length < refinementSuggestions.length;
 
   return (
     <div
       className={`grid gap-6 ${
         isPresentationMode
-          ? "xl:grid-cols-[minmax(360px,0.74fr)_minmax(0,1.72fr)] xl:gap-6 2xl:grid-cols-[minmax(380px,0.7fr)_minmax(0,1.85fr)]"
+          ? "xl:grid-cols-[minmax(320px,0.62fr)_minmax(0,1.92fr)] xl:gap-6 2xl:grid-cols-[minmax(340px,0.58fr)_minmax(0,2.05fr)]"
           : "xl:grid-cols-[minmax(340px,0.72fr)_minmax(0,1.58fr)] xl:gap-7 2xl:grid-cols-[minmax(360px,0.7fr)_minmax(0,1.7fr)]"
       }`}
     >
@@ -503,20 +466,17 @@ export function FlowWorkbench({
               : "bg-surface"
           }`}
         >
-          <div className="flex flex-col gap-4 border-b border-line/80 pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="border-b border-line/80 pb-3">
             <div className="max-w-2xl">
-              <p className="font-mono text-xs uppercase tracking-[0.28em] text-muted">
-                {isPresentationMode ? "Modo apresentacao" : "Entrada principal"}
-              </p>
-              <h2 className="mt-2 text-[2rem] font-semibold tracking-[-0.04em]">
+              <h2 className="text-[1.55rem] font-semibold tracking-[-0.04em]">
                 {isPresentationMode
-                  ? "Texto, refinamento e preview em primeiro plano"
+                  ? "Texto para gerar o fluxo"
                   : "Descreva o processo em linguagem natural"}
               </h2>
-              <p className="mt-2 text-sm leading-6 text-muted sm:text-[15px]">
+              <p className="mt-1.5 text-sm leading-6 text-muted sm:text-[15px]">
                 {isPresentationMode
-                  ? "Os paineis tecnicos e os apoios secundarios saem do caminho para a demo ficar mais limpa, com foco na evolucao do fluxo e no resultado visual."
-                  : "Descreva o processo, gere o fluxo e refine a estrutura com instrucoes curtas quando quiser evoluir o resultado."}
+                  ? "Escreva o processo, gere o diagrama e mostre o resultado."
+                  : "Escreva o processo, gere o fluxo e refine o resultado quando precisar."}
               </p>
             </div>
           </div>
@@ -537,7 +497,7 @@ export function FlowWorkbench({
                 className="mt-3 min-h-[212px] w-full resize-y rounded-[1.85rem] border border-line bg-[#fffdf8] p-5 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-[#8b8175] focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
               />
 
-              <div className="mt-4 flex flex-wrap gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={handleGenerateFlow}
@@ -552,234 +512,144 @@ export function FlowWorkbench({
                 </button>
                 <button
                   type="button"
-                  onClick={handleGenerateFlow}
-                  disabled={processText.trim().length === 0 || isGenerating}
-                  className="rounded-full border border-line bg-white/82 px-5 py-3 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Gerar do zero
-                </button>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2.5">
-                <button
-                  type="button"
                   onClick={handleLoadExample}
                   className="rounded-full border border-line/80 bg-white/65 px-3.5 py-2 text-sm text-muted transition hover:border-accent hover:bg-white hover:text-foreground"
                 >
                   Carregar exemplo
                 </button>
-                <button
-                  type="button"
-                  onClick={handleResetWorkbench}
-                  disabled={isGenerating}
-                  className="rounded-full border border-line/80 bg-transparent px-3.5 py-2 text-sm text-muted transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Limpar e recomecar
-                </button>
-                {visiblePromptChips.map((suggestion) => (
+                {!isPresentationMode ? (
                   <button
-                    key={suggestion}
                     type="button"
                     onClick={() =>
-                      setProcessText((current) =>
-                        current.trim().length === 0
-                          ? suggestion
-                          : `${current.trim()} ${suggestion}`,
-                      )
+                      setIsSecondaryActionsVisible((current) => !current)
                     }
-                    className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-                {hasExtraPromptSuggestions ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsMorePromptSuggestionsVisible(true)}
                     className="rounded-full border border-dashed border-line bg-transparent px-3.5 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
                   >
-                    Mais ideias
+                    {isSecondaryActionsVisible ? "Ocultar extras" : "Mais acoes"}
                   </button>
                 ) : null}
               </div>
 
-              {isPresentationMode ? (
+              {!isPresentationMode && isSecondaryActionsVisible ? (
                 <div
-                  className={`mt-3 flex flex-wrap items-center gap-3 rounded-[1.2rem] border px-4 py-3 transition-all duration-300 ${generationTone}`}
+                  className="mt-3 flex flex-wrap gap-2.5 rounded-[1.2rem] border border-line/70 bg-white/58 p-3"
                 >
-                  <div
-                    className={`h-2.5 w-2.5 shrink-0 rounded-full transition-all duration-300 ${
-                      generationState.status === "success"
-                        ? "bg-[#1f7a63] shadow-[0_0_0_8px_rgba(31,122,99,0.08)]"
-                        : generationState.status === "error"
-                          ? "bg-[#c96f3b] shadow-[0_0_0_8px_rgba(201,111,59,0.08)]"
-                          : generationState.status === "loading"
-                            ? "flowtalk-breath bg-[#45617f] shadow-[0_0_0_8px_rgba(69,97,127,0.08)]"
-                            : "bg-[#b7ab9a]"
-                    }`}
-                  />
-                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                    {getGenerationEyebrow(generationState.status)}
-                  </p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {generationState.title}
-                  </p>
-                  <p className="text-sm leading-6 opacity-85">
-                    {generationState.detail}
-                  </p>
-                </div>
-              ) : (
-                <div
-                  className={`flowtalk-panel-lift mt-3 overflow-hidden rounded-[1.2rem] border px-4 py-3 transition-all duration-300 ${generationTone}`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                        {getGenerationEyebrow(generationState.status)}
-                      </p>
-                      <p className="mt-1.5 text-sm font-semibold text-foreground">
-                        {generationState.title}
-                      </p>
-                      <p className="mt-1.5 text-sm leading-6 opacity-85">
-                        {generationState.detail}
-                      </p>
-                    </div>
-                    <div
-                      className={`mt-1 h-3 w-3 shrink-0 rounded-full transition-all duration-300 ${
-                        generationState.status === "success"
-                          ? "bg-[#1f7a63] shadow-[0_0_0_8px_rgba(31,122,99,0.08)]"
-                          : generationState.status === "error"
-                            ? "bg-[#c96f3b] shadow-[0_0_0_8px_rgba(201,111,59,0.08)]"
-                            : generationState.status === "loading"
-                              ? "flowtalk-breath bg-[#45617f] shadow-[0_0_0_8px_rgba(69,97,127,0.08)]"
-                              : "bg-[#b7ab9a]"
-                      }`}
-                    />
-                  </div>
-
-                  <div className="mt-3 overflow-hidden rounded-full bg-white/45">
-                    <div
-                      className={`h-[3px] origin-left rounded-full transition-all duration-500 ${
-                        generationState.status === "loading"
-                          ? "flowtalk-loading-sheen w-2/3 bg-[linear-gradient(90deg,rgba(69,97,127,0.2),rgba(69,97,127,0.78),rgba(69,97,127,0.2))]"
-                          : generationState.status === "success"
-                            ? "w-full bg-[linear-gradient(90deg,rgba(31,122,99,0.35),rgba(31,122,99,0.9))]"
-                            : generationState.status === "error"
-                              ? "w-full bg-[linear-gradient(90deg,rgba(201,111,59,0.35),rgba(201,111,59,0.86))]"
-                              : "w-1/4 bg-[rgba(92,88,79,0.18)]"
-                      }`}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="rounded-[1.6rem] border border-line bg-white/70 p-4 sm:p-4">
-                <div className="flex flex-col gap-3 border-b border-line/80 pb-3 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted">
-                      Refinamento textual
-                    </p>
-                    <h3 className="mt-1.5 text-[1.15rem] font-semibold tracking-[-0.03em]">
-                      Evolua um fluxo ja gerado sem perder a base atual
-                    </h3>
-                    <p className="mt-1.5 text-sm leading-6 text-muted">
-                      Instrua pequenas mudancas e preserve a estrutura valida sempre que possivel.
-                    </p>
-                  </div>
-
                   <button
                     type="button"
-                    onClick={() => setRefinementText(exampleRefinementPrompt)}
-                    className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm font-medium text-foreground transition hover:border-accent hover:bg-white"
+                    onClick={handleGenerateFlow}
+                    disabled={processText.trim().length === 0 || isGenerating}
+                    className="rounded-full border border-line bg-white/82 px-4 py-2 text-sm text-muted transition hover:border-accent hover:bg-white hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Carregar instrucao exemplo
+                    Gerar do zero
                   </button>
-                </div>
-
-                <div
-                  className={`mt-3 rounded-[1.25rem] border border-line/80 bg-white/72 p-3.5 shadow-[0_12px_28px_rgba(38,32,24,0.04)] ${
-                    isPresentationMode ? "bg-white/84" : ""
-                  }`}
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-muted">
-                        Contexto do refinamento
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-foreground">
-                        {refinementStatusTitle}
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-muted">
-                        {refinementStatusDetail}
-                      </p>
-                    </div>
-
-                    {hasGeneratedFlow ? (
-                      <div className="flex gap-3">
-                        <div className="rounded-full border border-line bg-white/82 px-4 py-2 text-sm text-muted">
-                          {validation.nodeCount} nodes
-                        </div>
-                        <div className="rounded-full border border-line bg-white/82 px-4 py-2 text-sm text-muted">
-                          {validation.edgeCount} edges
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-
-                <label
-                  htmlFor="refinement-text"
-                  className="mt-3 block font-mono text-xs uppercase tracking-[0.24em] text-muted"
-                >
-                  Instrucao de refinamento
-                </label>
-                <textarea
-                  id="refinement-text"
-                  value={refinementText}
-                  onChange={(event) => setRefinementText(event.target.value)}
-                  placeholder="Exemplo: adicione uma revisao comercial antes de validar o pagamento, mantendo o restante do fluxo"
-                  className="mt-2.5 min-h-[112px] w-full resize-y rounded-[1.35rem] border border-line bg-[#fffdf8] p-4 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-[#8b8175] focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
-                />
-
-                <div className="mt-3 flex flex-wrap gap-2.5">
                   <button
                     type="button"
-                    onClick={handleRefineFlow}
-                    disabled={refinementText.trim().length === 0 || !canRefine}
-                    className="rounded-full bg-[#1f7a63] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#17614e] disabled:cursor-not-allowed disabled:bg-[#84a99d]"
+                    onClick={handleResetWorkbench}
+                    disabled={isGenerating}
+                    className="rounded-full border border-line/80 bg-transparent px-4 py-2 text-sm text-muted transition hover:border-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Refinar fluxo atual
+                    Limpar e recomecar
                   </button>
-                  {!isPresentationMode ? (
-                    <div className="rounded-full border border-line/80 bg-white/65 px-4 py-3 text-sm text-muted">
-                      Gerar do zero cria uma nova estrutura. Refinar reaproveita o fluxo atual.
-                    </div>
-                  ) : (
-                    <div className="rounded-full border border-[rgba(31,122,99,0.14)] bg-[rgba(239,250,245,0.82)] px-4 py-3 text-sm text-[#1d5f4f]">
-                      Refinar mantem o fluxo atual como contexto da proxima versao.
-                    </div>
-                  )}
-                  {visibleRefinementChips.map((suggestion) => (
+                  <button
+                    type="button"
+                    onClick={() => setIsSuggestionsVisible((current) => !current)}
+                    className="rounded-full border border-line/80 bg-transparent px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                  >
+                    {isSuggestionsVisible ? "Ocultar sugestoes" : "Ver sugestoes"}
+                  </button>
+                </div>
+              ) : null}
+
+              {!isPresentationMode && isSuggestionsVisible ? (
+                <div
+                  className="mt-3 flex flex-wrap gap-2.5 rounded-[1.2rem] border border-line/70 bg-white/58 p-3"
+                >
+                  {promptSuggestions.map((suggestion) => (
                     <button
                       key={suggestion}
                       type="button"
-                      onClick={() => setRefinementText(suggestion)}
-                      className="rounded-full border border-line bg-white/70 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                      onClick={() =>
+                        setProcessText((current) =>
+                          current.trim().length === 0
+                            ? suggestion
+                            : `${current.trim()} ${suggestion}`,
+                        )
+                      }
+                      className="rounded-full border border-line bg-white/72 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
                     >
                       {suggestion}
                     </button>
                   ))}
-                  {hasExtraRefinementSuggestions ? (
+                </div>
+              ) : null}
+
+              {hasGeneratedFlow ? (
+                <div className="rounded-[1.6rem] border border-line bg-white/70 p-4 sm:p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-mono text-xs uppercase tracking-[0.24em] text-muted">
+                        Refinamento textual
+                      </p>
+                      <h3 className="mt-1 text-[1.05rem] font-semibold tracking-[-0.03em]">
+                        Ajuste o fluxo com uma nova instrucao
+                      </h3>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => setIsMoreRefinementSuggestionsVisible(true)}
-                      className="rounded-full border border-dashed border-line bg-transparent px-3.5 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                      onClick={() => setRefinementText(exampleRefinementPrompt)}
+                      className="rounded-full border border-line bg-white/80 px-4 py-2 text-sm text-muted transition hover:border-accent hover:bg-white hover:text-foreground"
                     >
-                      Mais refinamentos
+                      Carregar exemplo
                     </button>
+                  </div>
+
+                  <textarea
+                    id="refinement-text"
+                    value={refinementText}
+                    onChange={(event) => setRefinementText(event.target.value)}
+                    placeholder="Exemplo: adicione uma revisao comercial antes de validar o pagamento"
+                    className="mt-3 min-h-[104px] w-full resize-y rounded-[1.35rem] border border-line bg-[#fffdf8] p-4 text-[15px] leading-7 text-foreground outline-none transition placeholder:text-[#8b8175] focus:border-accent focus:ring-4 focus:ring-[rgba(201,111,59,0.16)]"
+                  />
+
+                  <div className="mt-3 flex flex-wrap gap-2.5">
+                    <button
+                      type="button"
+                      onClick={handleRefineFlow}
+                      disabled={refinementText.trim().length === 0 || !canRefine}
+                      className="rounded-full bg-[#1f7a63] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#17614e] disabled:cursor-not-allowed disabled:bg-[#84a99d]"
+                    >
+                      Refinar fluxo atual
+                    </button>
+                    {!isPresentationMode ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsSuggestionsVisible((current) => !current)}
+                        className="rounded-full border border-line/80 bg-transparent px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                      >
+                        {isSuggestionsVisible
+                          ? "Ocultar sugestoes"
+                          : "Sugestoes de refinamento"}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {!isPresentationMode && isSuggestionsVisible ? (
+                    <div className="mt-3 flex flex-wrap gap-2.5 rounded-[1.2rem] border border-line/70 bg-white/58 p-3">
+                      {refinementSuggestions.map((suggestion) => (
+                        <button
+                          key={suggestion}
+                          type="button"
+                          onClick={() => setRefinementText(suggestion)}
+                          className="rounded-full border border-line bg-white/72 px-4 py-2 text-sm text-muted transition hover:border-accent hover:text-foreground"
+                        >
+                          {suggestion}
+                        </button>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
-              </div>
+              ) : null}
             </div>
 
             {isTechnicalVisible && !isPresentationMode ? (
@@ -911,21 +781,13 @@ export function FlowWorkbench({
                       : "border-line"
               } ${isPresentationMode ? "bg-[rgba(255,250,242,0.92)] sm:p-6 2xl:p-7" : "bg-surface"}`}
             >
-              <div className="mb-4 flex flex-col gap-3 border-b border-line/70 pb-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="mb-3 flex flex-col gap-3 border-b border-line/70 pb-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted">
-                    {isPresentationMode ? "Palco principal" : "Resultado principal"}
-                  </p>
-                  <h2 className="mt-2 text-[1.8rem] font-semibold tracking-[-0.05em] sm:text-[2rem] 2xl:text-[2.2rem]">
+                  <h2 className="text-[1.8rem] font-semibold tracking-[-0.05em] sm:text-[2rem] 2xl:text-[2.2rem]">
                     {isPresentationMode
                       ? "Fluxograma pronto para demo"
-                      : "Preview do fluxo pronto para uso"}
+                      : "Preview do fluxo"}
                   </h2>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-muted sm:text-[15px]">
-                    {isPresentationMode
-                      ? "A visualizacao ganha mais respiracao e menos ruido para apresentar o produto com clareza, foco e impacto."
-                      : "O diagrama assume o centro da pagina, com os controles certos e menos peso visual ao redor."}
-                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -959,44 +821,6 @@ export function FlowWorkbench({
                 </div>
               </div>
 
-              {isPresentationMode ? (
-                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-[1.45rem] border border-line/80 bg-white/76 px-4 py-3">
-                  <div className={`rounded-full border px-3 py-1.5 text-sm ${generationTone}`}>
-                    {generationState.title}
-                  </div>
-                  <div className="rounded-full border border-line bg-white/82 px-3 py-1.5 text-sm text-muted">
-                    {validation.nodeCount} nodes
-                  </div>
-                  <div className="rounded-full border border-line bg-white/82 px-3 py-1.5 text-sm text-muted">
-                    {validation.edgeCount} edges
-                  </div>
-                  <div className="rounded-full border border-line bg-white/82 px-3 py-1.5 text-sm text-muted">
-                    {validation.status === "valid"
-                      ? "Estrutura valida"
-                      : "Revisao pendente"}
-                  </div>
-                </div>
-              ) : (
-                <div className="mb-3 flex flex-wrap items-center gap-2.5">
-                  <div
-                    className={`rounded-full border px-3.5 py-2 text-sm transition ${generationTone}`}
-                  >
-                    {generationState.title}
-                  </div>
-                  <div className="rounded-full border border-line/80 bg-white/72 px-3.5 py-2 text-sm text-muted shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
-                    {validation.nodeCount} nodes
-                  </div>
-                  <div className="rounded-full border border-line/80 bg-white/72 px-3.5 py-2 text-sm text-muted shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
-                    {validation.edgeCount} edges
-                  </div>
-                  <div className="rounded-full border border-line/80 bg-white/72 px-3.5 py-2 text-sm text-muted shadow-[0_12px_28px_rgba(38,32,24,0.04)]">
-                    {validation.status === "valid"
-                      ? "Estrutura valida"
-                      : "Revisao pendente"}
-                  </div>
-                </div>
-              )}
-
               {!isTechnicalVisible && !isPresentationMode ? (
                 <div className="mb-3 flex flex-col gap-2 rounded-[1.3rem] border border-line/80 bg-white/72 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -1017,14 +841,11 @@ export function FlowWorkbench({
                 </div>
               ) : null}
 
-              {exportState.status !== "idle" ? (
+              {!isPresentationMode && exportState.status !== "idle" ? (
                 <div
-                  className={`mb-3 rounded-[1.2rem] border p-3 transition ${exportTone}`}
+                  className={`mb-2 rounded-[1.05rem] border px-3 py-2 transition ${exportTone}`}
                 >
-                  <p className="font-mono text-[11px] uppercase tracking-[0.24em] opacity-70">
-                    Exportacao
-                  </p>
-                  <p className="mt-2 text-sm leading-6 opacity-85">
+                  <p className="text-sm leading-6 opacity-85">
                     {exportState.message}
                   </p>
                 </div>
@@ -1032,16 +853,8 @@ export function FlowWorkbench({
 
               {isGenerating ? (
                 <div className="pointer-events-none absolute inset-x-5 top-5 z-10 flex justify-end">
-                  <div className="flowtalk-panel-lift flowtalk-loading-sheen overflow-hidden rounded-[1.2rem] border border-[rgba(34,56,84,0.12)] bg-white/88 px-4 py-3 text-sm text-[#31465d] shadow-[0_18px_40px_rgba(38,32,24,0.12)] backdrop-blur">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#6c8197]">
-                      Atualizando preview
-                    </p>
-                    <p className="mt-2 text-sm font-medium text-[#31465d]">
-                      {generationState.title}
-                    </p>
-                    <p className="mt-1 text-[13px] leading-5 text-[#51657a]">
-                      Mantendo o ultimo resultado visivel enquanto o fluxo novo fica pronto.
-                    </p>
+                  <div className="flowtalk-panel-lift flowtalk-loading-sheen overflow-hidden rounded-full border border-[rgba(34,56,84,0.12)] bg-white/88 px-4 py-2 text-sm text-[#31465d] shadow-[0_18px_40px_rgba(38,32,24,0.12)] backdrop-blur">
+                    Atualizando preview
                   </div>
                 </div>
               ) : null}
@@ -1064,13 +877,8 @@ export function FlowWorkbench({
 
               {generationState.status === "error" ? (
                 <div className="pointer-events-none absolute inset-x-5 bottom-5 z-10 flex justify-start">
-                  <div className="rounded-[1.15rem] border border-[rgba(201,111,59,0.18)] bg-[rgba(255,246,239,0.9)] px-4 py-3 text-sm text-[#8f4a22] shadow-[0_16px_34px_rgba(38,32,24,0.08)] backdrop-blur">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-[#b46b40]">
-                      Resultado anterior preservado
-                    </p>
-                    <p className="mt-1 text-[13px] leading-5 text-[#8f4a22]">
-                      O preview atual continua disponivel enquanto ajustamos a proxima tentativa.
-                    </p>
+                  <div className="rounded-full border border-[rgba(201,111,59,0.18)] bg-[rgba(255,246,239,0.9)] px-4 py-2 text-sm text-[#8f4a22] shadow-[0_16px_34px_rgba(38,32,24,0.08)] backdrop-blur">
+                    Resultado anterior preservado
                   </div>
                 </div>
               ) : null}
